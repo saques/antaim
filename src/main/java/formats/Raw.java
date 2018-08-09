@@ -7,19 +7,16 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 
-public class Raw {
+public class Raw extends Image{
 
-    private byte[] data;
-    @Getter
-    private int width, height;
-
-    public Raw(int width, int height, String path) throws IOException {
+    public Raw(int width, int height, Encoding encoding, String path) throws IOException {
+        super(width, height, encoding);
         data = IOUtils.toByteArray(new FileInputStream(path));
     }
 
-
-
-
+    public static void main(String[] args) throws Exception {
+        Image image = new Raw(389,164, Encoding.GS, "D:\\git\\antaim\\images\\GIRL.RAW");
+    }
 
 
 

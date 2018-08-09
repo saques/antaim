@@ -1,7 +1,16 @@
 package formats;
 
+import lombok.Getter;
+
 public enum Encoding {
 
-    RGB, GS;
+    RGB(3), GS(1);
+
+    Encoding(int bands){
+        this.bands = bands;
+    }
+
+    @Getter
+    private int bands;
 
 }
