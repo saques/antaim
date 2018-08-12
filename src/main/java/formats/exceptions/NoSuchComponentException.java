@@ -1,4 +1,6 @@
-package formats;
+package formats.exceptions;
+
+import formats.Encoding;
 
 public class NoSuchComponentException extends RuntimeException {
     public NoSuchComponentException(int band, Encoding encoding){

@@ -1,7 +1,13 @@
 package formats;
 
 
+import formats.exceptions.NoSuchComponentException;
 import lombok.Getter;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 
 public abstract class Image {
 
@@ -28,8 +34,36 @@ public abstract class Image {
         data[getIndex(x, y, component)] = doubleToByte(value);
     }
 
+    public BufferedImage toBufferedImage(){
+        BufferedImage image = new BufferedImage(width, height, encoding.getBufferedImageType());
+        for(int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                image.setRGB(x, y, getIntPixel(x, y));
+            }
+        }
+        return image;
+    }
+
+    private int getIntPixel(int x, int y){
+        int ans = 0;
+        switch (encoding){
+            case RGB:
+                ans = ((0xFF&d(x,y,0)) << 16) | ((0xFF&d(x,y,1)) << 8) | (0xFF&d(x,y,2));
+                break;
+            case GS:
+                ans = ((0xFF&d(x,y,0)) << 16) | ((0xFF&d(x,y,0)) << 8) | (0xFF&d(x,y,0));
+                break;
+        }
+        return ans;
+    }
+
+
     private int getIndex(int x, int y, int component){
-        return (x*width + y)*encoding.getBands() + component;
+        return (x + y*width)*encoding.getBands() + component;
+    }
+
+    private byte d(int x, int y, int component){
+        return data[getIndex(x,y,component)];
     }
 
     private double byteToDouble(byte b){
