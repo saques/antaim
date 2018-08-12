@@ -18,8 +18,8 @@ public class RawImageTest {
 
     @Test
     public void testCorrectInsertion(){
-        for(int i = 0; i < 164; i++) {
-            for (int j = 0; j < 389; j++) {
+        for(int i = 0; i < 389; i++) {
+            for (int j = 0; j < 164; j++) {
                 double d1 = image.getComponent(i, j ,0);
                 image.setComponent(i,j,0,d1);
                 assertFalse(Math.abs(d1-image.getComponent(i,j,0))>0.0001);

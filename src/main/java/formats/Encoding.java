@@ -6,7 +6,7 @@ import java.awt.image.BufferedImage;
 
 public enum Encoding {
 
-    RGB(3, BufferedImage.TYPE_INT_RGB), GS(1, BufferedImage.TYPE_BYTE_GRAY);
+    RGB(3, BufferedImage.TYPE_INT_RGB), GS(1, BufferedImage.TYPE_INT_RGB), HSV(3, BufferedImage.TYPE_INT_RGB);
 
     Encoding(int bands, int bufferedImageType){
         this.bands = bands;

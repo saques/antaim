@@ -1,6 +1,7 @@
 package formats;
 
 import formats.exceptions.FormatException;
+import org.apache.commons.io.IOUtils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -29,8 +30,11 @@ public class Ppm extends Image {
         if(depth >= 256)
             throw new FormatException("Unsupported color depth");
 
-        data = new byte[width*height];
-        inputStream.read(data);
+        byte[] bytes = new byte[width*height*encoding.getBands()];
+        inputStream.read(bytes);
+
+        for(int i = 0; i < bytes.length; i++)
+            data[i] = byteToDouble(bytes[i]);
     }
 
 }
