@@ -8,7 +8,7 @@ import java.io.IOException;
 public class Ppm extends Image {
 
     public Ppm(String path) throws IOException {
-        super(0, 0, Encoding.RGB);
+        super(0, 0, Encoding.RGB, false);
 
         int depth;
 

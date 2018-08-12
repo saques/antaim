@@ -7,7 +7,7 @@ import java.io.IOException;
 public class Pgm extends Image {
 
     public Pgm(String path) throws IOException {
-        super(0, 0, Encoding.GS);
+        super(0, 0, Encoding.GS,false);
 
         int depth;
 
