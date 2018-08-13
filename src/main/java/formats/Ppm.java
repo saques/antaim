@@ -33,6 +33,8 @@ public class Ppm extends Image {
         byte[] bytes = new byte[width*height*encoding.getBands()];
         inputStream.read(bytes);
 
+        data = new double[width*height*encoding.getBands()];
+
         for(int i = 0; i < bytes.length; i++)
             data[i] = byteToDouble(bytes[i]);
     }

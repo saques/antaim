@@ -228,7 +228,7 @@ public class Image {
         for(int x = x1; x < x2; x++)
             for(int y = y1; y < y2; y++)
                 for(int b = 0; b < encoding.getBands(); b++)
-                    image.data[getIndex(x, y, b, nWidth, encoding)] = d(x, y, b);
+                    image.data[getIndex(x-x1, y-y1, b, nWidth, encoding)] = d(x, y, b);
         return image;
     }
 

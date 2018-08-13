@@ -1,5 +1,6 @@
 import formats.Encoding;
 import formats.Image;
+import formats.Pgm;
 import formats.Raw;
 
 import javax.imageio.ImageIO;
@@ -11,7 +12,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        drawCircleWithImage();
+        selectTEST();
     }
 
     /**
@@ -33,6 +34,12 @@ public final class PlayGround {
     public static void drawGrayScale() throws IOException{
         ImageIO.write(ImageDrawingUtils.scale(Encoding.GS, ImageDrawingUtils.grayScale).toBufferedImage(),
                 "bmp", new File("D:\\git\\antaim\\images\\GRAYSCALE.BMP"));
+    }
+
+    public static void selectTEST() throws IOException{
+        Image image = new Pgm("/home/nmarcantonio/antaim/images/TEST.PGM");
+        ImageIO.write(image.copy(9,69,53,96).toBufferedImage(),
+                "bmp", new File("/home/nmarcantonio/antaim/images/SFASFASFAS.PGM"));
     }
 
     public static void drawFlashCircle() throws IOException{
