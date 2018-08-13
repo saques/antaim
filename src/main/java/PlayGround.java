@@ -1,5 +1,6 @@
 import formats.Encoding;
 import formats.Image;
+import formats.Raw;
 
 import javax.imageio.ImageIO;
 import java.io.File;
@@ -10,7 +11,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        drawFlashCircle();
+        drawCircleWithImage();
     }
 
     /**
@@ -39,5 +40,15 @@ public final class PlayGround {
                 ImageDrawingUtils.scale(Encoding.HSV,ImageDrawingUtils.fixedRGB(2, 1)),127,127, 50, ImageDrawingUtils.fixedRGB(1, 1));
         ImageIO.write(image.toBufferedImage(), "bmp", new File("D:\\git\\antaim\\images\\FLASH.BMP"));
     }
+
+    public static void drawCircleWithImage() throws IOException{
+        Image barco = new Raw(290, 207, Encoding.GS, "D:\\git\\antaim\\images\\BARCO.RAW");
+        ImageDrawingUtils.GradientColour colour = barco::getComponents;
+        Image image = ImageDrawingUtils.drawCircle(
+                ImageDrawingUtils.scale(Encoding.HSV,ImageDrawingUtils.fixedRGB(2, 1)),127,127, 50, colour);
+        ImageIO.write(image.toBufferedImage(), "bmp", new File("D:\\git\\antaim\\images\\USAIHDKSA.BMP"));
+    }
+
+
 
 }

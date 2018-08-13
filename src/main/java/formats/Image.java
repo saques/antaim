@@ -64,8 +64,16 @@ public class Image {
         if(isOutOfBounds(x, y))
             throw new IndexOutOfBoundsException();
         double[] ans = new double[3];
-        for(int b = 0; b < encoding.getBands(); b++)
-            ans[b] = getComponent(x, y, b);
+        switch (encoding){
+            case RGB:
+            case HSV:
+                for(int b = 0; b < encoding.getBands(); b++)
+                    ans[b] = getComponent(x, y, b);
+                break;
+            case GS:
+                ans[0] = ans[1] = ans[2] = getComponent(x, y, 0);
+            break;
+        }
         return ans;
     }
 
