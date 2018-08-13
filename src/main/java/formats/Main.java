@@ -5,9 +5,13 @@ import javafx.event.ActionEvent;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.effect.Light;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
@@ -105,6 +109,40 @@ public class Main extends Application {
 
 
             iv.setPreserveRatio(true);
+
+            final Rectangle selection = new Rectangle();
+            final Light.Point anchor = new Light.Point();
+
+            iv.setOnMousePressed(event -> {
+                anchor.setX(event.getX());
+                anchor.setY(event.getY());
+                selection.setX(event.getX());
+                selection.setY(event.getY());
+                selection.setFill(null); // transparent
+                selection.setStroke(Color.BLACK); // border
+                selection.getStrokeDashArray().add(10.0);
+                root.getChildren().add(selection);
+            });
+
+            iv.setOnMouseDragged(event -> {
+                selection.setWidth(Math.abs(event.getX() - anchor.getX()));
+                selection.setHeight(Math.abs(event.getY() - anchor.getY()));
+                selection.setX(Math.min(anchor.getX(), event.getX()));
+                selection.setY(Math.min(anchor.getY(), event.getY()));
+            });
+
+            iv.setOnMouseReleased(event -> {
+                // Do what you want with selection's properties here
+                System.out.printf("X: %.2f, Y: %.2f, Width: %.2f, Height: %.2f%n",
+                        selection.getX(), selection.getY(), selection.getWidth(), selection.getHeight());
+                PixelReader reader = iv.getImage().getPixelReader();
+              //  WritableImage newImage = new WritableImage(reader, (int)selection.getX(), (int)selection.getY(), (int)selection.getWidth(), (int)selection.getHeight());
+                root.getChildren().remove(selection);
+                selection.setWidth(0);
+                selection.setHeight(0);
+
+
+            });
 
             stage.setScene( new Scene(root, image.getWidth()*2+250, image.getHeight()+100));
             stage.show();
