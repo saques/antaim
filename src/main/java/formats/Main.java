@@ -21,6 +21,7 @@ import javafx.scene.text.Text;
 import javafx.stage.*;
 import javafx.scene.image.Image;
 
+import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 
@@ -98,25 +99,33 @@ public class Main extends Application {
 
         Menu fileMenu = new Menu("Archivo");
         MenuItem openImage = new MenuItem("Cargar Imagen");
-        MenuItem saveIMage = new MenuItem("Guardar Imagen Transformada");
+        MenuItem saveImage = new MenuItem("Guardar Imagen Transformada");
         MenuItem exitMenuItem = new MenuItem("Exit");
         exitMenuItem.setOnAction(actionEvent -> Platform.exit());
-        openImage.setOnAction((final ActionEvent e) -> chooseImage(stage,root));
+        openImage.setOnAction((final ActionEvent e) ->  {saveImage.setDisable(true);chooseImage(stage,root,saveImage);});
+        saveImage.setOnAction((final ActionEvent e) -> saveImage(stage));
+        saveImage.setDisable(true);
 
-        fileMenu.getItems().addAll(openImage, saveIMage,
+
+        fileMenu.getItems().addAll(openImage, saveImage,
                 new SeparatorMenuItem(), exitMenuItem);
 
         menuBar.getMenus().addAll(fileMenu);
 
         root.getChildren().addAll(chooseImageButton);
+        root.setStyle("-fx-background-color: BEIGE;");
         stage.setScene(new Scene(root, 500, 500));
+
         stage.show();
     }
+
+
+
     public static void main(String args[]){
         launch(args);
     }
 
-    private void chooseImage(final Stage stage, BorderPane root) {
+    private void chooseImage(final Stage stage, BorderPane root,MenuItem saveImage) {
         File file = fileChooser.showOpenDialog(stage);
         if (file != null) {
             Image fxImg = null;
@@ -126,33 +135,62 @@ public class Main extends Application {
             String[]  aux = file.toString().split("/");
             aux = aux[aux.length - 1].split("\\.");
             System.out.println(aux.length != 2);
-            if (aux.length != 2){
-                //mal
-            } else {
-                if (aux[1].toUpperCase().equals("PGM")){
-                    try {
-                        System.out.println(file.toString());
-                        img = new Pgm(file.toString());
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
-                    showImage(stage,root,fxImg);
+            if (aux.length == 2){
+                switch (aux[1].toUpperCase()){
+                    case "PGM":
+                        try {
+                            System.out.println(file.toString());
+                            img = new Pgm(file.toString());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
+                        showImage(stage,root,fxImg,saveImage);
+                        break;
+                    case "PPM":
+                        try {
+                            System.out.println(file.toString());
+                            img = new Ppm(file.toString());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
+                        showImage(stage,root,fxImg,saveImage);
+                        break;
+                    case "RAW":
+                        showModalForRaw(stage,root,file.toString(),saveImage);
+                        break;
+                    default:
+                        showErrorModal(stage,"El formato de archivo es inválido. Solo se aceptan imágenes con extensión.ppm .pgm o .raw");
+                        break;
 
-                } else if (aux[1].toUpperCase().equals("JPG") || aux[1].toUpperCase().equals("PNG") || aux[1].toUpperCase().equals("BMP")){
-                    fxImg = new Image(file.toURI().toString());
-                } else if (aux[1].toUpperCase().equals("RAW")){
-                    showModalForRaw(stage,root,file.toString());
                 }
+
             }
-
-
-
-
         }
     }
 
-    private void showImage(Stage stage, BorderPane root, Image fxImg){
+    private void saveImage(Stage stage) {
+        FileChooser fileChooser = new FileChooser();
+
+        //Set extension filter
+        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("BMP files (*.bmp)", "*.bmp");
+        fileChooser.getExtensionFilters().add(extFilter);
+
+        //Show save file dialog
+        File file = fileChooser.showSaveDialog(stage);
+
+        if(file != null){
+            try {
+                ImageIO.write(transfImg.toBufferedImage(),
+                        "bmp", new File(file.toString()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void showImage(Stage stage, BorderPane root, Image fxImg, MenuItem saveImage){
         if (transfImageVIew != null)
             root.getChildren().remove(transfImageVIew);
         ImageView iv = new ImageView(fxImg);
@@ -165,7 +203,8 @@ public class Main extends Application {
         iv.setPreserveRatio(true);
 
         root.getChildren().add(iv);
-
+        stage.setWidth((iv.getImage().getWidth() * 2) + 200);
+        stage.setHeight( (iv.getImage().getHeight()) + 100);
         final Rectangle selection = new Rectangle();
         final Light.Point anchor = new Light.Point();
 
@@ -196,22 +235,29 @@ public class Main extends Application {
             int x2 = (int) (x1+selection.getWidth());
             int y2 = (int) (y1 + selection.getHeight());
             System.out.println("x1 = "+x1 + "; y1 = "+y1+"; x2 = "+x2+"; y2 = "+y2);
-            transfImg = finalFormattedImg.copy(x1,y1,x2,y2);
-            Image fxTransfImg = SwingFXUtils.toFXImage(transfImg.toBufferedImage(), null);
+            int width = finalFormattedImg.getWidth();
+            int height = finalFormattedImg.getHeight();
+            if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
+                saveImage.setDisable(false);
+                transfImg = finalFormattedImg.copy(x1, y1, x2, y2);
+                Image fxTransfImg = SwingFXUtils.toFXImage(transfImg.toBufferedImage(), null);
 
-            transfImageVIew = new ImageView(fxTransfImg);
+                transfImageVIew = new ImageView(fxTransfImg);
 
-            //Setting the position of the image
-            transfImageVIew.setX(iv.getImage().getWidth()+150);
-            transfImageVIew.setY(40);
-
-
-            //Setting the preserve ratio of the image view
-            transfImageVIew.setPreserveRatio(true);
+                //Setting the position of the image
+                transfImageVIew.setX(iv.getImage().getWidth() + 150);
+                transfImageVIew.setY(40);
 
 
+                //Setting the preserve ratio of the image view
+                transfImageVIew.setPreserveRatio(true);
+
+
+                root.getChildren().add(transfImageVIew);
+            } else{
+                saveImage.setDisable(true);
+            }
             root.getChildren().remove(selection);
-            root.getChildren().add(transfImageVIew);
             selection.setWidth(0);
             selection.setHeight(0);
 
@@ -220,9 +266,17 @@ public class Main extends Application {
 
     }
 
-    private void showModalForRaw(Stage stage, BorderPane root ,String path){
-        Text widthLabel = new Text("Width");
-        Text heightLabel = new Text("Height");
+    private boolean isSelectionOutOfBounds(int x1, int y1, int x2, int y2,int width, int height){
+        return (x1 < 0 || x1 > width || x2 < 0 || x2 > width || y1 < 0 || y1 > height || y2 < 0 || y2 > height);
+    }
+
+    private boolean areSamePoint(int x1, int y1, int x2, int y2){
+        return x1 == x2 && y1 == y2;
+    }
+
+    private void showModalForRaw(Stage stage, BorderPane root ,String path,MenuItem saveImage){
+        Text widthLabel = new Text("Ancho");
+        Text heightLabel = new Text("Alto");
 
         TextField widthField = new TextField();
         TextField heightField = new TextField();
@@ -268,17 +322,17 @@ public class Main extends Application {
                 Integer height = new Integer(heightField.getText());
                 img = new Raw(width,height,Encoding.GS,path);
             } catch (Exception e) {
-                showErrorModal(stage);
+                showErrorModal(stage,"Las dimensiones ingresadas son incorrectas");
                 return;
             }
             Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
-            showImage(stage,root,fxImg);
+            showImage(stage,root,fxImg,saveImage);
             newWindow.close();
         });
     }
 
-    private void showErrorModal(Stage stage){
-        Label error = new Label("Las dimensiones ingresadas son incorrectas");
+    private void showErrorModal(Stage stage,String errorMsg){
+        Label error = new Label(errorMsg);
 
         Button close = new Button("Cerrar");
 
