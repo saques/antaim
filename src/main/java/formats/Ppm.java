@@ -1,7 +1,7 @@
 package formats;
 
 import formats.exceptions.FormatException;
-import org.apache.commons.io.IOUtils;
+import utils.Utils;
 
 import java.io.FileInputStream;
 import java.io.IOException;

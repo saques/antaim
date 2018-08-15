@@ -2,6 +2,7 @@ package formats;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -10,6 +11,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.effect.Effect;
 import javafx.scene.effect.Light;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelReader;
@@ -20,10 +22,12 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.*;
 import javafx.scene.image.Image;
+import utils.ImageDrawingUtils;
 
 import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 
 public class Main extends Application {
 
@@ -37,55 +41,12 @@ public class Main extends Application {
 
     private formats.Image transfImg= null;
 
+    private Text transfImgAvg = null;
+
     ImageView imageVIew = null;
 
     ImageView transfImageVIew = null;
 
-    /*@Override
-    public void start(Stage stage) throws FileNotFoundException {
-
-            //Creating an image
-            Image image = new Image(new FileInputStream("C:\\Users\\NMarcantonio\\Documents\\antaim\\images\\lena.jpg"));
-
-            //Setting the image view 1
-            ImageView imageView1 = new ImageView(image);
-
-            //Setting the position of the image
-            imageView1.setX(50);
-            imageView1.setY(25);
-
-
-            //Setting the preserve ratio of the image view
-            imageView1.setPreserveRatio(true);
-
-            Image improvedImage = new Image(new FileInputStream("C:\\Users\\NMarcantonio\\Documents\\antaim\\images\\lena.jpg"));
-
-            //Setting the image view 2
-            ImageView imageView2 = new ImageView(improvedImage);
-
-            //Setting the position of the image
-            imageView2.setX(image.getWidth()+150);
-            imageView2.setY(25);
-
-
-            //Setting the preserve ratio of the image view
-            imageView2.setPreserveRatio(true);
-
-            //Creating a Group object
-            Group root = new Group(imageView1, imageView2);
-
-            //Creating a scene object
-            Scene scene = new Scene(root, image.getWidth()+improvedImage.getWidth()+250, Math.max(image.getHeight(),improvedImage.getHeight())+100);
-
-            //Setting title to the Stage
-            stage.setTitle("ATI interface");
-
-            //Adding scene to the stage
-            stage.setScene(scene);
-
-            //Displaying the contents of the stage
-            stage.show();
-        }*/
     @Override
     public void start(final Stage stage) {
 
@@ -103,14 +64,34 @@ public class Main extends Application {
         MenuItem exitMenuItem = new MenuItem("Exit");
         exitMenuItem.setOnAction(actionEvent -> Platform.exit());
         openImage.setOnAction((final ActionEvent e) ->  {saveImage.setDisable(true);chooseImage(stage,root,saveImage);});
-        saveImage.setOnAction((final ActionEvent e) -> saveImage(stage));
+        saveImage.setOnAction((final ActionEvent e) -> saveImage(stage,transfImg));
         saveImage.setDisable(true);
+
+        Menu toolsMenu = new Menu("Herramientas");
+        Menu drawImage = new Menu("Dibujar Figura");
+        MenuItem drawCircle = new MenuItem("Dibujar círculo");
+        drawCircle.setOnAction((final ActionEvent e) -> drawCircle(stage));
+        MenuItem drawRectangle = new MenuItem("Dibujar rectángulo");
+        drawRectangle.setOnAction((final ActionEvent e) -> drawRectangle(stage));
+
+        drawImage.getItems().addAll(drawCircle,drawRectangle);
+
+        Menu createGradation = new Menu("Crear Degradé");
+        MenuItem drawGrayScale = new MenuItem("Degradé de grises");
+        drawGrayScale.setOnAction((final ActionEvent e) -> drawGrayScale(stage));
+        MenuItem drawColorScale = new MenuItem("Degradé a color");
+        drawColorScale.setOnAction((final ActionEvent e) -> drawColorScale(stage));
+
+        createGradation.getItems().addAll(drawGrayScale,drawColorScale);
+
+
+        toolsMenu.getItems().addAll(drawImage,createGradation);
 
 
         fileMenu.getItems().addAll(openImage, saveImage,
                 new SeparatorMenuItem(), exitMenuItem);
 
-        menuBar.getMenus().addAll(fileMenu);
+        menuBar.getMenus().addAll(fileMenu,toolsMenu);
 
         root.getChildren().addAll(chooseImageButton);
         root.setStyle("-fx-background-color: BEIGE;");
@@ -161,7 +142,7 @@ public class Main extends Application {
                         showModalForRaw(stage,root,file.toString(),saveImage);
                         break;
                     default:
-                        showErrorModal(stage,"El formato de archivo es inválido. Solo se aceptan imágenes con extensión.ppm .pgm o .raw");
+                        showErrorModal(stage,"El formato de archivo es inválido. Solo se aceptan imágenes con extensión .ppm .pgm o .raw");
                         break;
 
                 }
@@ -170,7 +151,7 @@ public class Main extends Application {
         }
     }
 
-    private void saveImage(Stage stage) {
+    private void saveImage(Stage stage, formats.Image image) {
         FileChooser fileChooser = new FileChooser();
 
         //Set extension filter
@@ -182,7 +163,7 @@ public class Main extends Application {
 
         if(file != null){
             try {
-                ImageIO.write(transfImg.toBufferedImage(),
+                ImageIO.write(image.toBufferedImage(),
                         "bmp", new File(file.toString()));
             } catch (IOException e) {
                 e.printStackTrace();
@@ -202,9 +183,15 @@ public class Main extends Application {
 
         iv.setPreserveRatio(true);
 
-        root.getChildren().add(iv);
+        Text avgText = getAverage(stage,img);
+        avgText.setX(50);
+        avgText.setY(40+img.getHeight()+30);
+        root.getChildren().addAll(iv,avgText);
+
+
+
         stage.setWidth((iv.getImage().getWidth() * 2) + 200);
-        stage.setHeight( (iv.getImage().getHeight()) + 100);
+        stage.setHeight( (iv.getImage().getHeight()) + 300);
         final Rectangle selection = new Rectangle();
         final Light.Point anchor = new Light.Point();
 
@@ -230,6 +217,7 @@ public class Main extends Application {
         formats.Image finalFormattedImg = img;
         iv.setOnMouseReleased(event -> {
             root.getChildren().remove(transfImageVIew);
+            root.getChildren().remove(transfImgAvg);
             int x1 = (int) (selection.getX() - iv.getX());
             int y1 = (int) (selection.getY() - iv.getY());
             int x2 = (int) (x1+selection.getWidth());
@@ -252,8 +240,10 @@ public class Main extends Application {
                 //Setting the preserve ratio of the image view
                 transfImageVIew.setPreserveRatio(true);
 
-
-                root.getChildren().add(transfImageVIew);
+                transfImgAvg = getAverage(stage,transfImg);
+                transfImgAvg.setX(iv.getImage().getWidth() + 150);
+                transfImgAvg.setY(40+transfImg.getHeight()+30);
+                root.getChildren().addAll(transfImageVIew,transfImgAvg);
             } else{
                 saveImage.setDisable(true);
             }
@@ -272,6 +262,21 @@ public class Main extends Application {
 
     private boolean areSamePoint(int x1, int y1, int x2, int y2){
         return x1 == x2 && y1 == y2;
+    }
+
+
+    private Text getAverage(Stage stage, formats.Image img){
+        Text grayLabel = null;
+        if (img.encoding.equals(Encoding.RGB)){
+
+        } else if(img.encoding.equals(Encoding.GS)){
+            double avg = img.avg()[0];
+            grayLabel = new Text(String.format("Promedio de Gris: %.2f", avg));
+
+            grayLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+
+        }
+        return grayLabel;
     }
 
     private void showModalForRaw(Stage stage, BorderPane root ,String path,MenuItem saveImage){
@@ -366,5 +371,251 @@ public class Main extends Application {
         newWindow.show();
 
         close.setOnAction(event -> newWindow.close());
+    }
+
+
+
+    private void drawCircle(Stage stage){
+        Text centerLabel = new Text("Centro");
+        Text xLabel = new Text("         X");
+        Text yLabel = new Text("         Y");
+        Text radiusLabel = new Text("Radio");
+        Text widthLabel = new Text("Ancho");
+        Text heightLabel = new Text("Alto");
+
+        TextField xField = new TextField();
+        TextField yField = new TextField();
+
+        TextField radiusField = new TextField();
+
+        TextField widthField = new TextField();
+        TextField heightField = new TextField();
+
+        Button submit = new Button("Ok");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(centerLabel, 0, 0);
+        gridPane.add(xLabel, 0, 1);
+        gridPane.add(xField, 1, 1);
+        gridPane.add(yLabel, 0, 2);
+        gridPane.add(yField, 1, 2);
+        gridPane.add(radiusLabel, 0, 3);
+        gridPane.add(radiusField, 1, 3);
+        gridPane.add(widthLabel, 0, 4);
+        gridPane.add(widthField, 1, 4);
+        gridPane.add(heightLabel, 0, 5);
+        gridPane.add(heightField, 1, 5);
+
+        gridPane.add(submit, 0, 6);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        centerLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        xLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        yLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        radiusLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        widthLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        heightLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        gridPane.setStyle("-fx-background-color: BEIGE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Ingresar Dimensiones");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Integer x = new Integer(xField.getText());
+                Integer y = new Integer(yField.getText());
+                Integer radius = new Integer(radiusField.getText());
+                Integer width = new Integer(widthField.getText());
+                Integer height = new Integer(heightField.getText());
+                formats.Image blackImageWhiteCircle = new formats.Image(width,height, Encoding.GS, true);
+                ImageDrawingUtils.drawCircle(blackImageWhiteCircle,x,y,radius, (j, k) -> new double[]{1,1,1});
+                saveImage(stage,blackImageWhiteCircle);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Las dimensiones ingresadas son incorrectas");
+                return;
+            }
+            newWindow.close();
+        });
+
+    }
+
+
+
+    private void drawRectangle(Stage stage){
+        Text firstPoint = new Text("Punto inicial");
+        Text xLabel1 = new Text("         X");
+        Text yLabel1 = new Text("         Y");
+        Text secondPoint = new Text("Punto final");
+        Text xLabel2 = new Text("         X");
+        Text yLabel2 = new Text("         Y");
+        Text widthLabel = new Text("Ancho");
+        Text heightLabel = new Text("Alto");
+
+        TextField xField1 = new TextField();
+        TextField yField1 = new TextField();
+
+        TextField xField2 = new TextField();
+        TextField yField2 = new TextField();
+
+        TextField widthField = new TextField();
+        TextField heightField = new TextField();
+
+        Button submit = new Button("Ok");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(firstPoint, 0, 0);
+        gridPane.add(xLabel1, 0, 1);
+        gridPane.add(xField1, 1, 1);
+        gridPane.add(yLabel1, 0, 2);
+        gridPane.add(yField1, 1, 2);
+        gridPane.add(secondPoint, 0, 3);
+        gridPane.add(xLabel2, 0, 4);
+        gridPane.add(xField2, 1, 4);
+        gridPane.add(yLabel2, 0, 5);
+        gridPane.add(yField2, 1, 5);
+        gridPane.add(widthLabel, 0, 6);
+        gridPane.add(widthField, 1, 6);
+        gridPane.add(heightLabel, 0, 7);
+        gridPane.add(heightField, 1, 7);
+
+        gridPane.add(submit, 0, 8);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        firstPoint.setStyle("-fx-font: normal bold 20px 'serif' ");
+        xLabel1.setStyle("-fx-font: normal bold 20px 'serif' ");
+        yLabel1.setStyle("-fx-font: normal bold 20px 'serif' ");
+        secondPoint.setStyle("-fx-font: normal bold 20px 'serif' ");
+        xLabel2.setStyle("-fx-font: normal bold 20px 'serif' ");
+        yLabel2.setStyle("-fx-font: normal bold 20px 'serif' ");
+        widthLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        heightLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        gridPane.setStyle("-fx-background-color: BEIGE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Ingresar Dimensiones");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Integer x1 = new Integer(xField1.getText());
+                Integer y1 = new Integer(yField1.getText());
+                Integer x2 = new Integer(xField2.getText());
+                Integer y2 = new Integer(yField2.getText());
+                Integer width = new Integer(widthField.getText());
+                Integer height = new Integer(heightField.getText());
+                formats.Image blackImageWhiteRectangle = new formats.Image(width,height, Encoding.GS, true);
+                ImageDrawingUtils.drawRectangle(blackImageWhiteRectangle,x1,y1,x2,y2, (j, k) -> new double[]{1,1,1});
+                saveImage(stage,blackImageWhiteRectangle);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Las dimensiones ingresadas son incorrectas");
+                return;
+            }
+            newWindow.close();
+        });
+
+    }
+
+    private void drawGrayScale(Stage stage){
+        formats.Image grayScale = ImageDrawingUtils.scale(Encoding.GS, ImageDrawingUtils.grayScale);
+        saveImage(stage,grayScale);
+    }
+
+    private void drawColorScale(Stage stage){
+        Text bandLabel = new Text("Banda fija");
+        ChoiceBox bandChoice = new ChoiceBox(FXCollections.observableArrayList(
+                "R", "G", "B")
+        );
+        Text valueLabel = new Text("Valor fijo");
+
+        TextField valueField = new TextField();
+
+        Button submit = new Button("Ok");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(bandLabel, 0, 0);
+        gridPane.add(bandChoice, 1, 0);
+        gridPane.add(valueLabel, 0, 1);
+        gridPane.add(valueField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        bandLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        valueLabel.setStyle("-fx-font: normal bold 20px 'serif' ");
+        gridPane.setStyle("-fx-background-color: BEIGE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Ingresar Color");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Integer index = bandChoice.getSelectionModel().getSelectedIndex();
+                Double value = new Double(valueField.getText());
+                if (value < 0 || value > 1){
+                    showErrorModal(stage,"El valor debe ir de 0 a 1");
+                    return;
+                }
+                formats.Image img = ImageDrawingUtils.scale(Encoding.RGB, ImageDrawingUtils.fixedRGB(index,value));
+                saveImage(stage,img);
+                newWindow.close();
+            } catch (Exception e) {
+                showErrorModal(stage,"Las dimensiones ingresadas son incorrectas");
+                return;
+            }
+        });
     }
 }

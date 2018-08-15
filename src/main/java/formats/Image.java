@@ -77,6 +77,21 @@ public class Image {
         return ans;
     }
 
+    public double[] avg(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalStateException();
+        double[] ans = new double[]{0,0,0};
+        for(int x = 0; x < width; x++){
+            for(int y = 0; y < height; y++){
+                double[] cmp = getComponents(x, y);
+                ans[0] += cmp[0]; ans[1] += cmp[1]; ans[2] += cmp[2];
+            }
+        }
+        int tot = width*height;
+        ans[0] /= tot; ans[1] /= tot; ans[2] /= tot;
+        return ans;
+    }
+
     public static double[] toHSV(double r, double g, double b){
         double h = 0, s , v ;
 

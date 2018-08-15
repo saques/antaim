@@ -2,6 +2,7 @@ import formats.Encoding;
 import formats.Image;
 import formats.Pgm;
 import formats.Raw;
+import utils.ImageDrawingUtils;
 
 import javax.imageio.ImageIO;
 import java.io.File;
