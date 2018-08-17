@@ -4,12 +4,13 @@ package formats;
 import formats.exceptions.NoSuchComponentException;
 import lombok.Getter;
 
-import javax.naming.OperationNotSupportedException;
 import java.awt.image.BufferedImage;
 
 public class Image {
 
-    public static final double MAX_IN_DOUBLE = byteToDouble((byte)0xFF);
+    public static final double MAX_D = 1.0;
+    public static final int M = 0xFF;
+    public static final double U = 1.0/M;
 
 
     double[] data;
@@ -94,20 +95,20 @@ public class Image {
         return ans;
     }
 
-    public double[] histogram(int component){
+    public int[] histogram(int component){
         if(encoding.equals(Encoding.HSV))
             throw new IllegalStateException();
         if(component >= encoding.getBands())
             throw new IllegalArgumentException();
-        double[] ans = new double[256];
+        int[] ans = new int[256];
         for(int i = 0; i < width; i++)
             for(int j = 0; j < height; j++)
-                ans[0xFF & doubleToByte(getComponent(i, j, component))] ++;
+                ans[M & doubleToByte(getComponent(i, j, component))] ++;
         return ans;
     }
 
     public static double dynamicRangeCompression(double r, double R){
-        double c = MAX_IN_DOUBLE/Math.log(1+R);
+        double c = MAX_D /Math.log(1+R);
         return c*Math.log(1+r);
     }
 
@@ -123,7 +124,7 @@ public class Image {
     }
 
     public static double negative(double r){
-        return (-1)*r + MAX_IN_DOUBLE;
+        return byteToDouble((byte)(M - doubleToByte(r)));
     }
 
 
@@ -297,14 +298,14 @@ public class Image {
         int ans = 0;
         switch (encoding){
             case RGB:
-                ans = ((0xFF& b(x,y,0)) << 16) | ((0xFF& b(x,y,1)) << 8) | (0xFF& b(x,y,2));
+                ans = ((M& b(x,y,0)) << 16) | ((M& b(x,y,1)) << 8) | (M& b(x,y,2));
                 break;
             case GS:
-                ans = ((0xFF& b(x,y,0)) << 16) | ((0xFF& b(x,y,0)) << 8) | (0xFF& b(x,y,0));
+                ans = ((M& b(x,y,0)) << 16) | ((M& b(x,y,0)) << 8) | (M& b(x,y,0));
                 break;
             case HSV:
                 double[] rgb = toRGB(d(x, y, 0), d(x, y, 1), d(x, y, 2));
-                ans = ((0xFF & doubleToByte(rgb[0])) << 16) | ((0xFF& doubleToByte(rgb[1])) << 8) | (0xFF& doubleToByte(rgb[2]));
+                ans = ((M & doubleToByte(rgb[0])) << 16) | ((M& doubleToByte(rgb[1])) << 8) | (M& doubleToByte(rgb[2]));
                 break;
         }
         return ans;
@@ -335,11 +336,11 @@ public class Image {
     }
 
     public static double byteToDouble(byte b){
-        return (0xFF & b)/((double)0xFF);
+        return (0xFF&b)*U;
     }
 
     public static byte doubleToByte(double b){
-        return (byte)(0xFF & (int)Math.ceil(b*0xFF));
+        return (byte)(b/U);
     }
 
 }

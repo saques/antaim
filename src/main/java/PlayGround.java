@@ -15,7 +15,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        histogram();
+        histogram(false);
     }
 
     /**
@@ -27,10 +27,10 @@ public final class PlayGround {
         ImageIO.write(barco.negative(0).toBufferedImage(), "bmp", new File("D:\\git\\antaim\\images\\BARCO_NEGATIVE.BMP"));
     }
 
-    public static void histogram() throws IOException {
+    public static void histogram(boolean negative) throws IOException {
         Image barco = new Raw(290, 207, Encoding.GS, "D:\\git\\antaim\\images\\BARCO.RAW");
-        double[] histogram = barco.histogram(0);
-        PrintWriter writer = new PrintWriter(new FileWriter("D:\\git\\antaim\\images\\histogram_barco.txt"));
+        int[] histogram = negative ? barco.negative(0).histogram(0) : barco.histogram(0);
+        PrintWriter writer = new PrintWriter(new FileWriter("D:\\git\\antaim\\images\\histogram_barco" + (negative ? "_negative.txt" : ".txt")));
         for(int i = 0; i < histogram.length; i++)
             writer.println(histogram[i]);
         writer.flush();
