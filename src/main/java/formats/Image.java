@@ -9,6 +9,8 @@ import java.awt.image.BufferedImage;
 
 public class Image {
 
+    public static final double MAX_IN_DOUBLE = byteToDouble((byte)0xFF);
+
 
     double[] data;
     @Getter
@@ -91,6 +93,40 @@ public class Image {
         ans[0] /= tot; ans[1] /= tot; ans[2] /= tot;
         return ans;
     }
+
+    public double[] histogram(int component){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalStateException();
+        if(component >= encoding.getBands())
+            throw new IllegalArgumentException();
+        double[] ans = new double[256];
+        for(int i = 0; i < width; i++)
+            for(int j = 0; j < height; j++)
+                ans[0xFF & doubleToByte(getComponent(i, j, component))] ++;
+        return ans;
+    }
+
+    public static double dynamicRangeCompression(double r, double R){
+        double c = MAX_IN_DOUBLE/Math.log(1+R);
+        return c*Math.log(1+r);
+    }
+
+    public Image negative(int component){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalStateException();
+        if(component >= encoding.getBands())
+            throw new IllegalArgumentException();
+        for(int i = 0; i < width; i++)
+            for (int j = 0; j < height; j++)
+                setComponent(i, j, component, negative(getComponent(i, j, component)));
+        return this;
+    }
+
+    public static double negative(double r){
+        return (-1)*r + MAX_IN_DOUBLE;
+    }
+
+
 
     public static double[] toHSV(double r, double g, double b){
         double h = 0, s , v ;

@@ -6,19 +6,36 @@ import utils.ImageDrawingUtils;
 
 import javax.imageio.ImageIO;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 public final class PlayGround {
 
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        selectTEST();
+        histogram();
     }
 
     /**
      * Try me
      */
+
+    public static void negative() throws IOException {
+        Image barco = new Raw(290, 207, Encoding.GS, "D:\\git\\antaim\\images\\BARCO.RAW");
+        ImageIO.write(barco.negative(0).toBufferedImage(), "bmp", new File("D:\\git\\antaim\\images\\BARCO_NEGATIVE.BMP"));
+    }
+
+    public static void histogram() throws IOException {
+        Image barco = new Raw(290, 207, Encoding.GS, "D:\\git\\antaim\\images\\BARCO.RAW");
+        double[] histogram = barco.histogram(0);
+        PrintWriter writer = new PrintWriter(new FileWriter("D:\\git\\antaim\\images\\histogram_barco.txt"));
+        for(int i = 0; i < histogram.length; i++)
+            writer.println(histogram[i]);
+        writer.flush();
+        writer.close();
+    }
 
     public static void drawMonochromeCircle() throws IOException {
         Image image = new Image(200,200, Encoding.GS, true);
