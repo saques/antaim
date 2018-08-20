@@ -108,7 +108,7 @@ public class Image {
         double[] ans = new double[256];
         for(int i = 0; i < width; i++)
             for(int j = 0; j < height; j++)
-                ans[M & doubleToByte(getComponent(i, j, component))] ++;
+                ans[M & doubleToByte(getComponent(i, j, component))]++;
         return ans;
     }
 
@@ -125,9 +125,93 @@ public class Image {
         return this;
     }
 
+
     public static double negative(double r){
         return byteToDouble((byte)(M - doubleToByte(r)));
     }
+
+    public Image thresholding(int component, double u){
+        checkConstraints(component, Encoding.HSV);
+        for(int i = 0; i < width; i++)
+            for (int j = 0; j < height; j++)
+                setComponent(i, j, component, thresholding(getComponent(i, j, component),u));
+        return this;
+    }
+
+    public static double thresholding(double r, double u){
+        return r <= u ? 0 : 1 ;
+    }
+
+    public Image productWithScalar(int component, double num){
+        checkConstraints(component, Encoding.HSV);
+
+        double[] arr = componentsArray(component);
+
+        double max = Arrays.stream(arr).max().getAsDouble() * num;
+
+        for(int i = 0; i < width; i++)
+            for (int j = 0; j < height; j++)
+                setComponent(i, j, component, dynamicRangeCompression(getComponent(i, j, component) * num ,max));
+        return this;
+    }
+
+    public double[] equalizatedHisto(int component){
+        checkConstraints(component, Encoding.HSV);
+        double[] histogram = histogram(component);
+
+        System.out.println(histogram[0]);
+        double[] relativeHisto = relativeHisto(histogram, Arrays.stream(histogram).sum());
+        return equalizatedHisto(histogram,relativeHisto);
+    }
+
+    public Image equalization(int component){
+        checkConstraints(component, Encoding.HSV);
+
+        double[] histogram = this.histogram(component);
+
+        double[] relativeHisto = relativeHisto(histogram, Arrays.stream(histogram).sum());
+
+        double[] transf = equalizatedTransf(histogram,relativeHisto);
+
+
+        for(int i = 0; i < width; i++)
+            for (int j = 0; j < height; j++)
+                setComponent(i, j, component, transf[M & doubleToByte(getComponent(i, j, component))] / 255);
+        return this;
+    }
+
+    public static double[] equalizatedHisto (double [] h ,double [] s ){
+        double [] ans = new double[s.length];
+
+        for (int i = 0 ; i < s.length ; i++){
+            ans[(int)Math.floor( ( ((s[i] - s[0]) / (1 - s[0]) ) ) * M)] +=  h[i];
+        }
+        return ans;
+    }
+
+    public static double[] equalizatedTransf (double [] h ,double [] s ){
+        double [] ans = new double[s.length];
+        for (int i = 0 ; i < s.length ; i++){
+            ans[i] =  (int)Math.floor( ( ((s[i] - s[0]) / (1 - s[0]) ) ) * M);
+        }
+        return ans;
+    }
+
+    public double[] relativeHisto(double [] h , double n){
+        if (h == null )
+            throw new IllegalStateException("H no puede ser null");
+
+        double [] ans = new double[h.length];
+        ans[0] = h[0] ;
+
+        for (int i = 1 ; i < h.length; i++){
+            ans[i] = ans[i-1] + h[i];
+        }
+
+        ans = Arrays.stream(ans).map( x -> x / n).toArray();
+        return ans;
+    }
+
 
     public Image automaticContrastEnhancement(int component){
         checkConstraints(component, Encoding.HSV);
