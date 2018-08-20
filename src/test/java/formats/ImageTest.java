@@ -33,9 +33,9 @@ public class ImageTest {
     @Test
     public void checkCorrectNegativeConversion() throws IOException {
         Image barco = new Raw(290, 207, Encoding.GS, "D:\\git\\antaim\\images\\BARCO.RAW");
-        int[] histogram = barco.histogram(0);
-        int[] histogramNegative = barco.negative(0).histogram(0);
+        double[] histogram = barco.histogram(0);
+        double[] histogramNegative = barco.negative(0).histogram(0);
         for(int i = 0; i < 256; i++)
-            assertEquals(histogramNegative[256-1-i], histogram[i]);
+            assertEquals(0, Double.compare(histogramNegative[256-1-i], histogram[i]));
     }
 }

@@ -5,9 +5,9 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-public final class Utils {
+public final class FileUtils {
 
-    private Utils() {}
+    private FileUtils() {}
 
     public static String readToWhiteSpace(FileInputStream inputStream) throws IOException {
         List<Byte> list = new LinkedList<>();

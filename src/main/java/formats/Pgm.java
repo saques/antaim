@@ -1,7 +1,7 @@
 package formats;
 
 import formats.exceptions.FormatException;
-import utils.Utils;
+import utils.FileUtils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -14,14 +14,14 @@ public class Pgm extends Image {
         int depth;
 
         FileInputStream inputStream = new FileInputStream(path);
-        if(!"P5".equals(Utils.readToWhiteSpace(inputStream)))
+        if(!"P5".equals(FileUtils.readToWhiteSpace(inputStream)))
             throw new FormatException("Illegal magic number");
         try {
-            String str = Utils.readToWhiteSpace(inputStream);
+            String str = FileUtils.readToWhiteSpace(inputStream);
             width = Integer.valueOf(str);
-            str = Utils.readToWhiteSpace(inputStream);
+            str = FileUtils.readToWhiteSpace(inputStream);
             height = Integer.valueOf(str);
-            str = Utils.readToWhiteSpace(inputStream);
+            str = FileUtils.readToWhiteSpace(inputStream);
             depth = Integer.valueOf(str);
         } catch (NumberFormatException e){
             throw new FormatException("Illegal width format");

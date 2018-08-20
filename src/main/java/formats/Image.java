@@ -3,10 +3,18 @@ package formats;
 
 import formats.exceptions.NoSuchComponentException;
 import lombok.Getter;
+import utils.MathUtils;
 
 import java.awt.image.BufferedImage;
+import java.util.Arrays;
 
 public class Image {
+
+    @FunctionalInterface
+    public interface PixelFunction{
+        double apply(double pixel);
+    }
+
 
     public static final double MAX_D = 1.0;
     public static final int M = 0xFF;
@@ -95,12 +103,9 @@ public class Image {
         return ans;
     }
 
-    public int[] histogram(int component){
-        if(encoding.equals(Encoding.HSV))
-            throw new IllegalStateException();
-        if(component >= encoding.getBands())
-            throw new IllegalArgumentException();
-        int[] ans = new int[256];
+    public double[] histogram(int component){
+        checkConstraints(component, Encoding.HSV);
+        double[] ans = new double[256];
         for(int i = 0; i < width; i++)
             for(int j = 0; j < height; j++)
                 ans[M & doubleToByte(getComponent(i, j, component))] ++;
@@ -113,10 +118,7 @@ public class Image {
     }
 
     public Image negative(int component){
-        if(encoding.equals(Encoding.HSV))
-            throw new IllegalStateException();
-        if(component >= encoding.getBands())
-            throw new IllegalArgumentException();
+        checkConstraints(component, Encoding.HSV);
         for(int i = 0; i < width; i++)
             for (int j = 0; j < height; j++)
                 setComponent(i, j, component, negative(getComponent(i, j, component)));
@@ -127,6 +129,58 @@ public class Image {
         return byteToDouble((byte)(M - doubleToByte(r)));
     }
 
+    public Image automaticContrastEnhancement(int component){
+        checkConstraints(component, Encoding.HSV);
+        PixelFunction function = constrastEnhancementFunction(component);
+
+        for(int i = 0; i < width; i++)
+            for(int j = 0; j < height; j++)
+                setComponent(i, j, component, function.apply(getComponent(i, j, component)));
+
+        return this;
+    }
+
+    private double[] componentsArray(int component){
+        double[] ans = new double[data.length/encoding.getBands()];
+        int count = 0;
+        for(int i = 0; i < width; i++)
+            for(int j = 0; j < height; j++)
+                ans[count++] = getComponent(i, j, component);
+        return ans;
+    }
+
+    private PixelFunction constrastEnhancementFunction(int component){
+        double[] arr = componentsArray(0);
+
+        double avg = MathUtils.avg(arr);
+        double std = MathUtils.std(arr, avg);
+
+        double r1 = computeR1(avg, std), r2 = computeR2(avg, std);
+        double s1 = r1/2, s2 = 1 - r2/2;
+        double p1 = s1/r1, p2 = (s2-s1)/(r2-r1), p3 = (1-s2)/(1-r2);
+
+        return (x) -> x < r1 ? x*p1 : (x < r2 ? x*p2 : x*p3);
+    }
+
+    private static double computeR1(double avg, double std){
+        double r1;
+        double div = 2;
+        do {
+            r1 = avg - std/div;
+            div ++;
+        } while (r1 <= 0);
+        return r1;
+    }
+
+    private static double computeR2(double avg, double std){
+        double r2;
+        double div = 2;
+        do {
+            r2 = avg + std/div;
+            div ++;
+        } while (r2 >= 1);
+        return r2;
+    }
 
 
     public static double[] toHSV(double r, double g, double b){
@@ -329,6 +383,13 @@ public class Image {
             throw new NoSuchComponentException(component, encoding);
         if(isOutOfBounds(x, y))
             throw new IndexOutOfBoundsException();
+    }
+
+    private void checkConstraints(int component, Encoding... encodings){
+        if(Arrays.stream(encodings).anyMatch(x -> x == encoding))
+            throw new IllegalStateException();
+        if(component >= encoding.getBands())
+            throw new IllegalArgumentException();
     }
 
     private static int getIndex(int x, int y, int component, int width, Encoding encoding){
