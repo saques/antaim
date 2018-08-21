@@ -198,8 +198,8 @@ public class Image {
     }
 
     public double[] relativeHisto(double [] h , double n){
-        if (h == null )
-            throw new IllegalStateException("H no puede ser null");
+        if (h == null)
+            throw new IllegalStateException("Histogram can't be null");
 
         double [] ans = new double[h.length];
         ans[0] = h[0] ;
@@ -220,7 +220,6 @@ public class Image {
         for(int i = 0; i < width; i++)
             for(int j = 0; j < height; j++)
                 setComponent(i, j, component, function.apply(getComponent(i, j, component)));
-
         return this;
     }
 
@@ -234,7 +233,7 @@ public class Image {
     }
 
     private PixelFunction constrastEnhancementFunction(int component){
-        double[] arr = componentsArray(0);
+        double[] arr = componentsArray(component);
 
         double avg = MathUtils.avg(arr);
         double std = MathUtils.std(arr, avg);
@@ -243,7 +242,7 @@ public class Image {
         double s1 = r1/2, s2 = 1 - r2/2;
         double p1 = s1/r1, p2 = (s2-s1)/(r2-r1), p3 = (1-s2)/(1-r2);
 
-        return (x) -> x < r1 ? x*p1 : (x < r2 ? x*p2 : x*p3);
+        return (x) -> x < r1 ? x*p1 : (x < r2 ? x*p2 + (s1-p2*r1) : x*p3 + (s2-p3*r2));
     }
 
     private static double computeR1(double avg, double std){

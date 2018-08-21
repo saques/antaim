@@ -15,7 +15,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        equalizationTest();
+        contrastEnhancement();
     }
 
     /**
@@ -23,8 +23,8 @@ public final class PlayGround {
      */
 
     public static void contrastEnhancement() throws IOException {
-        Image barco = new Raw(290, 207, Encoding.GS, "D:\\git\\antaim\\images\\BARCO.RAW");
-        ImageIO.write(barco.automaticContrastEnhancement(0).toBufferedImage(), "bmp", new File("D:\\git\\antaim\\images\\BARCO_ENHANCED.BMP"));
+        Image lena = new Raw(256, 256, Encoding.GS, "D:\\git\\antaim\\images\\LENA.RAW");
+        ImageIO.write(lena.automaticContrastEnhancement(0).toBufferedImage(), "bmp", new File("D:\\git\\antaim\\images\\LENA_ENHANCED.BMP"));
     }
 
     public static void negative() throws IOException {
