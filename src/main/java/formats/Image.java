@@ -7,8 +7,10 @@ import utils.MathUtils;
 
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
-public class Image {
+public class Image implements Cloneable{
 
     @FunctionalInterface
     public interface PixelFunction{
@@ -33,6 +35,13 @@ public class Image {
         this.encoding = encoding;
         if(initData)
             data = new double[width*height*encoding.getBands()];
+    }
+
+    @Override
+    public Image clone(){
+        Image image = new Image(width, height, encoding, false);
+        image.data = data.clone();
+        return image;
     }
 
     public double getComponent(int x, int y, int component) {
@@ -125,9 +134,63 @@ public class Image {
         return this;
     }
 
-
     public static double negative(double r){
         return byteToDouble((byte)(M - doubleToByte(r)));
+    }
+
+    public static void applyAndAdjust(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f){
+
+
+        double min[] = new double[i1.encoding.getBands()];
+        double max[] = new double[i1.encoding.getBands()];
+
+
+        for(int i = 0; i < i1.width; i++) {
+            for (int j = 0; j < i1.height; j++) {
+                for(int c = 0; c < i1.encoding.getBands(); c++){
+                    double val = f.apply(i1.getComponent(i, j, c), i2.getComponent(i, j, c));
+                    min[c] = Math.min(min[c], val); max[c] = Math.max(max[c], val);
+                    ans.setComponent(i, j, c, val);
+                }
+            }
+        }
+
+        for(int i = 0; i < i1.width; i++) {
+            for (int j = 0; j < i2.height; j++) {
+                for(int c = 0; c < i1.encoding.getBands(); c++){
+                    ans.setComponent(i, j, c, (ans.getComponent(i, j, c) - min[c])/(max[c]-min[c]));
+                }
+            }
+        }
+
+    }
+
+    public Image add(Image image){
+        if(!this.encoding.equals(image.encoding) || this.width != image.width || this.height != image.height)
+            throw new IllegalArgumentException();
+        Image ans = clone();
+
+        applyAndAdjust(this, image, ans, (x, y) -> x+y);
+
+        return ans;
+    }
+
+    public Image subtract(Image image){
+        if(!this.encoding.equals(image.encoding))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+
+        applyAndAdjust(this, image, ans, (x, y) -> x-y);
+
+        return ans;
+    }
+
+    public Image product(Image image){
+        if(!this.encoding.equals(image.encoding))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+
+        return ans;
     }
 
     public Image thresholding(int component, double u){
