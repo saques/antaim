@@ -2,6 +2,7 @@ package formats;
 
 
 import formats.exceptions.NoSuchComponentException;
+import interfaces.TriFunction;
 import lombok.Getter;
 import utils.MathUtils;
 
@@ -137,7 +138,8 @@ public class Image implements Cloneable{
         return byteToDouble((byte)(M - doubleToByte(r)));
     }
 
-    public static void applyAndAdjust(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f){
+    public static void applyAndAdjust(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f,
+                                      TriFunction<Double, Double, Double, Double> adjust){
 
 
         double min[] = new double[i1.encoding.getBands()];
@@ -157,7 +159,7 @@ public class Image implements Cloneable{
         for(int i = 0; i < i1.width; i++) {
             for (int j = 0; j < i2.height; j++) {
                 for(int c = 0; c < i1.encoding.getBands(); c++){
-                    ans.setComponent(i, j, c, (ans.getComponent(i, j, c) - min[c])/(max[c]-min[c]));
+                    ans.setComponent(i, j, c, adjust.apply(ans.getComponent(i, j, c), min[c], max[c]));
                 }
             }
         }
@@ -169,7 +171,7 @@ public class Image implements Cloneable{
             throw new IllegalArgumentException();
         Image ans = clone();
 
-        applyAndAdjust(this, image, ans, (x, y) -> x+y);
+        applyAndAdjust(this, image, ans, (x, y) -> x+y, (c, min, max) -> (c - min)/(max-min));
 
         return ans;
     }
@@ -179,7 +181,7 @@ public class Image implements Cloneable{
             throw new IllegalArgumentException();
         Image ans = clone();
 
-        applyAndAdjust(this, image, ans, (x, y) -> x-y);
+        applyAndAdjust(this, image, ans, (x, y) -> x-y, (c, min, max) -> (c - min)/(max-min));
 
         return ans;
     }
@@ -188,6 +190,8 @@ public class Image implements Cloneable{
         if(!this.encoding.equals(image.encoding))
             throw new IllegalArgumentException();
         Image ans = clone();
+
+        applyAndAdjust(this, image, ans, (x, y) -> x*y, (c, min, max) -> dynamicRangeCompression(c, max));
 
         return ans;
     }

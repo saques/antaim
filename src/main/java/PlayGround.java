@@ -15,12 +15,40 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        contrastEnhancement();
+        lenaSubGS();
     }
 
     /**
      * Try me
      */
+
+    public static void lenaSubGS() throws IOException{
+        Image GS = ImageDrawingUtils.scale(Encoding.GS, ImageDrawingUtils.grayScale);
+        Image lena = new Raw(256, 256, Encoding.GS, "images\\LENA.RAW");
+        ImageIO.write(lena.subtract(GS).toBufferedImage(), "bmp", new File("images\\LENA_subGS.BMP"));
+    }
+
+    public static void imageOps(String op) throws IOException{
+        Image lena = new Raw(256, 256, Encoding.GS, "images\\LENA.RAW");
+        Image o = null;
+        switch (op){
+            case "sum":
+                o = lena.add(lena);
+                break;
+            case "sub":
+                o = lena.subtract(lena);
+                break;
+            case "mul":
+                o = lena.product(lena);
+                break;
+            default:
+                throw new IllegalArgumentException();
+        }
+
+        ImageIO.write(o.toBufferedImage(), "bmp", new File("images\\LENA_" + op + ".BMP"));
+
+
+    }
 
     public static void contrastEnhancement() throws IOException {
         Image lena = new Raw(256, 256, Encoding.GS, "images\\LENA.RAW");

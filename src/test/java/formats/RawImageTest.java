@@ -13,7 +13,7 @@ public class RawImageTest {
 
     @Before
     public void init() throws IOException {
-        image = new Raw(389,164, Encoding.GS, "D:\\git\\antaim\\images\\GIRL.RAW");
+        image = new Raw(389,164, Encoding.GS, "images\\GIRL.RAW");
     }
 
     @Test
