@@ -58,7 +58,7 @@ public final class PlayGround {
 
         PrintWriter writer = new PrintWriter(new FileWriter("images\\c2Lena.txt"));
 
-        double[] histogram =  lena.equalizatedHisto(0);
+        double[] histogram =  lena.equalizedHistogram(0);
         for(int i = 0; i < histogram.length; i++)
             writer.println(histogram[i]);
         writer.flush();

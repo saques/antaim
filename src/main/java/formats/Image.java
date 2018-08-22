@@ -8,7 +8,6 @@ import utils.MathUtils;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 public class Image implements Cloneable{
 
@@ -218,13 +217,13 @@ public class Image implements Cloneable{
         return this;
     }
 
-    public double[] equalizatedHisto(int component){
+    public double[] equalizedHistogram(int component){
         checkConstraints(component, Encoding.HSV);
         double[] histogram = histogram(component);
 
         System.out.println(histogram[0]);
-        double[] relativeHisto = relativeHisto(histogram, Arrays.stream(histogram).sum());
-        return equalizatedHisto(histogram,relativeHisto);
+        double[] relativeHisto = relativeHistogram(histogram, Arrays.stream(histogram).sum());
+        return equalizedHistogram(histogram,relativeHisto);
     }
 
     public Image equalization(int component){
@@ -232,9 +231,9 @@ public class Image implements Cloneable{
 
         double[] histogram = this.histogram(component);
 
-        double[] relativeHisto = relativeHisto(histogram, Arrays.stream(histogram).sum());
+        double[] relativeHisto = relativeHistogram(histogram, Arrays.stream(histogram).sum());
 
-        double[] transf = equalizatedTransf(histogram,relativeHisto);
+        double[] transf = equalizedTransformation(histogram,relativeHisto);
 
 
         for(int i = 0; i < width; i++)
@@ -243,7 +242,7 @@ public class Image implements Cloneable{
         return this;
     }
 
-    public static double[] equalizatedHisto (double [] h ,double [] s ){
+    public static double[] equalizedHistogram(double [] h , double [] s ){
         double [] ans = new double[s.length];
 
         for (int i = 0 ; i < s.length ; i++){
@@ -252,7 +251,7 @@ public class Image implements Cloneable{
         return ans;
     }
 
-    public static double[] equalizatedTransf (double [] h ,double [] s ){
+    public static double[] equalizedTransformation(double [] h , double [] s ){
         double [] ans = new double[s.length];
         for (int i = 0 ; i < s.length ; i++){
             ans[i] =  (int)Math.floor( ( ((s[i] - s[0]) / (1 - s[0]) ) ) * M);
@@ -260,7 +259,7 @@ public class Image implements Cloneable{
         return ans;
     }
 
-    public double[] relativeHisto(double [] h , double n){
+    public double[] relativeHistogram(double [] h , double n){
         if (h == null)
             throw new IllegalStateException("Histogram can't be null");
 
