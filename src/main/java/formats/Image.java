@@ -122,8 +122,8 @@ public class Image implements Cloneable{
     }
 
     public static double dynamicRangeCompression(double r, double R){
-        double c = MAX_D /Math.log(1+R);
-        return c*Math.log(1+r);
+        double c = M /Math.log((1+R)*M);
+        return (c*Math.log(1+r*M))/M;
     }
 
     public Image negative(int component){
