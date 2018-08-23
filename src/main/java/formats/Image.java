@@ -144,7 +144,7 @@ public class Image implements Cloneable{
     }
 
     public static double negative(double r){
-        return 1 - r;
+        return byteToDouble((byte)(M - doubleToByte(r)));
     }
 
     public static void applyAndAdjust(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f,

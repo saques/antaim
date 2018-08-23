@@ -44,7 +44,8 @@ public class ImageTest {
         Image barco = new Raw(290, 207, Encoding.GS, "images\\BARCO.RAW");
         double[] histogram = barco.histogram(0);
         double[] histogramNegative = barco.negative(0).histogram(0);
-        for(int i = 0; i < 256; i++)
-            assertEquals(0, Double.compare(histogramNegative[256-1-i], histogram[i]));
+        for(int i = 0; i < 256; i++) {
+            assertEquals(0, Double.compare(histogramNegative[256 - 1 - i], histogram[i]));
+        }
     }
 }

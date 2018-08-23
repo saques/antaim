@@ -1,5 +1,9 @@
-package formats;
+package javafx;
 
+import formats.Encoding;
+import formats.Pgm;
+import formats.Ppm;
+import formats.Raw;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -267,9 +271,9 @@ public class Main extends Application {
 
     private Text getAverage(Stage stage, formats.Image img){
         Text grayLabel = null;
-        if (img.encoding.equals(Encoding.RGB)){
+        if (img.getEncoding().equals(Encoding.RGB)){
 
-        } else if(img.encoding.equals(Encoding.GS)){
+        } else if(img.getEncoding().equals(Encoding.GS)){
             double avg = img.avg()[0];
             grayLabel = new Text(String.format("Promedio de Gris: %.2f", avg));
 
