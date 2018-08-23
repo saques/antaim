@@ -20,21 +20,24 @@ public final class ImageDrawingUtils {
     private static double[] getRgbOneFixed(int fixed, double value, int x, int y){
         double rgb[] = new double[3];
         rgb[fixed] = value;
+
+        double xD = Image.byteToDouble((byte)x), yD = Image.byteToDouble((byte)y);
+
         if(fixed == 0){
-            rgb[1] = ((double)x)/255;
-            rgb[2] = ((double)y)/255;
+            rgb[1] = xD;
+            rgb[2] = yD;
         } else if(fixed == 1){
-            rgb[0] = ((double)x)/255;
-            rgb[2] = ((double)y)/255;
+            rgb[0] = xD;
+            rgb[2] = yD;
         } else {
-            rgb[0] = ((double)x)/255;
-            rgb[1] = ((double)y)/255;
+            rgb[0] = xD;
+            rgb[1] = yD;
         }
         return rgb;
     }
 
     public static final GradientColour grayScale = (x, y) -> {
-        double fert = (x%0xFF)/((double)0xFF);
+        double fert = Image.byteToDouble((byte)x);
         return new double[]{fert, fert, fert};
     };
 

@@ -51,7 +51,7 @@ public class Image implements Cloneable{
 
     public void setComponent(int x, int y, int component, double value){
         checkConstraints(x, y, component);
-        data[getIndex(x, y, component, width, encoding)] = value;
+        data[getIndex(x, y, component, width, encoding)] = round(value);
     }
 
     public void setComponents(int x, int y, double[] cmp){
@@ -134,8 +134,17 @@ public class Image implements Cloneable{
         return this;
     }
 
+    public Image negative(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.negative(i);
+        return ans;
+    }
+
     public static double negative(double r){
-        return byteToDouble((byte)(M - doubleToByte(r)));
+        return 1 - r;
     }
 
     public static void applyAndAdjust(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f,
@@ -204,11 +213,20 @@ public class Image implements Cloneable{
         return this;
     }
 
+    public Image thresholding(double u){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.thresholding(i, u);
+        return ans;
+    }
+
     public static double thresholding(double r, double u){
         return r <= u ? 0 : 1 ;
     }
 
-    public Image productWithScalar(int component, double num){
+    public Image scalarProduct(int component, double num){
         checkConstraints(component, Encoding.HSV);
 
         double[] arr = componentsArray(component);
@@ -221,6 +239,15 @@ public class Image implements Cloneable{
         return this;
     }
 
+    public Image scalarProduct(double n){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.scalarProduct(i, n);
+        return ans;
+    }
+
     public double[] equalizedHistogram(int component){
         checkConstraints(component, Encoding.HSV);
         double[] histogram = histogram(component);
@@ -230,7 +257,7 @@ public class Image implements Cloneable{
         return equalizedHistogram(histogram,relativeHisto);
     }
 
-    public Image equalization(int component){
+    public Image equalize(int component){
         checkConstraints(component, Encoding.HSV);
 
         double[] histogram = this.histogram(component);
@@ -244,6 +271,15 @@ public class Image implements Cloneable{
             for (int j = 0; j < height; j++)
                 setComponent(i, j, component, transf[M & doubleToByte(getComponent(i, j, component))] / 255);
         return this;
+    }
+
+    public Image equalize(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.equalize(i);
+        return ans;
     }
 
     public static double[] equalizedHistogram(double [] h , double [] s ){
@@ -287,6 +323,15 @@ public class Image implements Cloneable{
             for(int j = 0; j < height; j++)
                 setComponent(i, j, component, function.apply(getComponent(i, j, component)));
         return this;
+    }
+
+    public Image automaticContrastEnhancement(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.automaticContrastEnhancement(i);
+        return ans;
     }
 
     private double[] componentsArray(int component){
@@ -551,6 +596,10 @@ public class Image implements Cloneable{
 
     public static byte doubleToByte(double b){
         return (byte)(b/U);
+    }
+
+    public static double round(double d){
+        return Math.floor(d/U)*U;
     }
 
 }

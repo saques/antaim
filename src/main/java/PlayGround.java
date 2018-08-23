@@ -15,7 +15,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        lenaSubGS();
+        lenaAddGS();
     }
 
     /**
@@ -26,6 +26,12 @@ public final class PlayGround {
         Image GS = ImageDrawingUtils.scale(Encoding.GS, ImageDrawingUtils.grayScale);
         Image lena = new Raw(256, 256, Encoding.GS, "images\\LENA.RAW");
         ImageIO.write(lena.subtract(GS).toBufferedImage(), "bmp", new File("images\\LENA_subGS.BMP"));
+    }
+
+    public static void lenaAddGS() throws IOException{
+        Image GS = ImageDrawingUtils.scale(Encoding.GS, ImageDrawingUtils.grayScale);
+        Image lena = new Raw(256, 256, Encoding.GS, "images\\LENA.RAW");
+        ImageIO.write(lena.add(GS).toBufferedImage(), "bmp", new File("images\\LENA_addGS.BMP"));
     }
 
     public static void imageOps(String op) throws IOException{
@@ -52,28 +58,28 @@ public final class PlayGround {
 
     public static void contrastEnhancement() throws IOException {
         Image lena = new Raw(256, 256, Encoding.GS, "images\\LENA.RAW");
-        ImageIO.write(lena.automaticContrastEnhancement(0).toBufferedImage(), "bmp", new File("images\\LENA_ENHANCED.BMP"));
+        ImageIO.write(lena.automaticContrastEnhancement().toBufferedImage(), "bmp", new File("images\\LENA_ENHANCED.BMP"));
     }
 
     public static void negative() throws IOException {
         Image barco = new Raw(290, 207, Encoding.GS, "images\\BARCO.RAW");
-        ImageIO.write(barco.negative(0).toBufferedImage(), "bmp", new File("images\\BARCO_NEGATIVE.BMP"));
+        ImageIO.write(barco.negative().toBufferedImage(), "bmp", new File("images\\BARCO_NEGATIVE.BMP"));
     }
 
     public static void thresholding(double u) throws IOException {
         Image barco = new Raw(290, 207, Encoding.GS, "images\\BARCO.RAW");
-        ImageIO.write(barco.thresholding(0,u).toBufferedImage(), "bmp", new File("images\\BARCO_THRESHOLDED.BMP"));
+        ImageIO.write(barco.thresholding(u).toBufferedImage(), "bmp", new File("images\\BARCO_THRESHOLDED.BMP"));
     }
 
     public static void productWithScalar(double scalar) throws IOException {
         Image barco = new Raw(290, 207, Encoding.GS, "images\\BARCO.RAW");
-        ImageIO.write(barco.productWithScalar(0,scalar).toBufferedImage(), "bmp", new File("images\\BARCO_PRODUCT_SCALAR.BMP"));
+        ImageIO.write(barco.scalarProduct(scalar).toBufferedImage(), "bmp", new File("images\\BARCO_PRODUCT_SCALAR.BMP"));
     }
 
     public static void equalization() throws IOException {
-        Image lena = new Raw(290, 207, Encoding.GS, "images\\LENA.RAW");
-        ImageIO.write(lena.equalization(0).toBufferedImage(), "bmp", new File("images\\LENA_EQUALIZATED2.BMP"));
-        double[] histogram =  lena.equalization(0).histogram(0);
+        Image lena = new Raw(256, 256, Encoding.GS, "images\\LENA.RAW");
+        ImageIO.write(lena.equalize().toBufferedImage(), "bmp", new File("images\\LENA_EQUALIZATED2.BMP"));
+        double[] histogram =  lena.equalize().histogram(0);
         PrintWriter writer = new PrintWriter(new FileWriter("images\\histogram_lena_2.txt"));
         for(int i = 0; i < histogram.length; i++)
             writer.println(histogram[i]);
@@ -91,8 +97,8 @@ public final class PlayGround {
             writer.println(histogram[i]);
         writer.flush();
 
-        Image aux =  lena.equalization(0);
-         histogram = aux.histogram(0);
+        Image aux =  lena.equalize(0);
+        histogram = aux.histogram(0);
         ImageIO.write(aux.toBufferedImage(), "bmp", new File("images\\LENA_EQUALIZATED2.BMP"));
 
         writer = new PrintWriter(new FileWriter("images\\c1Lena.txt"));

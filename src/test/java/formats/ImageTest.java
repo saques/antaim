@@ -22,6 +22,15 @@ public class ImageTest {
     }
 
     @Test
+    public void unaffected(){
+        Image image = new Image(10,10,Encoding.GS,true);
+        Image imageC = image.clone();
+        image.setComponent(0,0,0,1);
+        assertEquals(0, Double.compare(1, image.getComponent(0,0,0)));
+        assertEquals(0, Double.compare(0, imageC.getComponent(0,0,0)));
+    }
+
+    @Test
     public void testByteToDoubleConversion(){
         int count[] = new int[256];
         for(int i = 0; i < 256; i++)
