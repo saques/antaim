@@ -26,6 +26,8 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.*;
 import javafx.scene.image.Image;
+import structures.LinkedListPeekAheadStack;
+import structures.PeekAheadStack;
 import utils.ImageDrawingUtils;
 
 import javax.imageio.ImageIO;
@@ -35,21 +37,43 @@ import java.util.Map;
 
 public class Main extends Application {
 
+    private static final double MAX_WIDTH = 256;
+    private static final double MAX_HEIGHT = 256;
+
+    private static final int PREVIEWS = 5;
+    private static final double PREVIEW_WIDTH = 64;
+    private static final double PREVIEW_HEIGHT = 64;
+    private static final double PREVIEW_SEPARATION = 16;
+
+    private static final double Y_X = 256, Y_Y = 64;
+    private static final double X_X = 256, X_Y = 32+Y_Y+MAX_HEIGHT;
+    private static final double P_X = 128, P_Y = X_Y+(MAX_HEIGHT-PREVIEW_HEIGHT);
+
     private final FileChooser fileChooser = new FileChooser();
 
     private final Button chooseImageButton = new Button("Elija la imagen ");
 
     private final Button changeImageButton = new Button("Cambiar imagen ");
 
-    private formats.Image img = null;
-
-    private formats.Image transfImg= null;
-
     private Text transfImgAvg = null;
 
-    ImageView imageVIew = null;
+    private ImageView xImageView = null, yImageView = null;
 
-    ImageView transfImageVIew = null;
+    private ImageView[] previews = new ImageView[PREVIEWS];
+
+    private PeekAheadStack<formats.Image> stack = new LinkedListPeekAheadStack<>();
+
+    private void pushAndRender(formats.Image image, Stage stage, BorderPane root){
+        stack.push(image);
+        renderStackTop(stage, root);
+    }
+
+    private void popAndRender(formats.Image image, Stage stage, BorderPane root){
+        if(stack.isEmpty())
+            return;
+        stack.pop();
+        renderStackTop(stage, root);
+    }
 
     @Override
     public void start(final Stage stage) {
@@ -64,12 +88,12 @@ public class Main extends Application {
 
         Menu fileMenu = new Menu("Archivo");
         MenuItem openImage = new MenuItem("Cargar Imagen");
-        MenuItem saveImage = new MenuItem("Guardar Imagen Transformada");
+        //MenuItem saveImage = new MenuItem("Guardar Imagen Transformada");
         MenuItem exitMenuItem = new MenuItem("Exit");
         exitMenuItem.setOnAction(actionEvent -> Platform.exit());
-        openImage.setOnAction((final ActionEvent e) ->  {saveImage.setDisable(true);chooseImage(stage,root,saveImage);});
-        saveImage.setOnAction((final ActionEvent e) -> saveImage(stage,transfImg));
-        saveImage.setDisable(true);
+        openImage.setOnAction((final ActionEvent e) ->  chooseImage(stage,root));
+        //saveImage.setOnAction((final ActionEvent e) -> saveImage(stage,transfImg));
+        //saveImage.setDisable(true);
 
         Menu toolsMenu = new Menu("Herramientas");
         Menu drawImage = new Menu("Dibujar Figura");
@@ -92,7 +116,7 @@ public class Main extends Application {
         toolsMenu.getItems().addAll(drawImage,createGradation);
 
 
-        fileMenu.getItems().addAll(openImage, saveImage,
+        fileMenu.getItems().addAll(openImage,
                 new SeparatorMenuItem(), exitMenuItem);
 
         menuBar.getMenus().addAll(fileMenu,toolsMenu);
@@ -110,12 +134,10 @@ public class Main extends Application {
         launch(args);
     }
 
-    private void chooseImage(final Stage stage, BorderPane root,MenuItem saveImage) {
+    private void chooseImage(final Stage stage, BorderPane root) {
         File file = fileChooser.showOpenDialog(stage);
         if (file != null) {
             Image fxImg = null;
-
-            img = null;
 
             String[]  aux = file.toString().split("/");
             aux = aux[aux.length - 1].split("\\.");
@@ -125,25 +147,21 @@ public class Main extends Application {
                     case "PGM":
                         try {
                             System.out.println(file.toString());
-                            img = new Pgm(file.toString());
+                            pushAndRender(new Pgm(file.toString()), stage, root);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-                        fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
-                        showImage(stage,root,fxImg,saveImage);
                         break;
                     case "PPM":
                         try {
                             System.out.println(file.toString());
-                            img = new Ppm(file.toString());
+                            pushAndRender(new Ppm(file.toString()), stage, root);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-                        fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
-                        showImage(stage,root,fxImg,saveImage);
                         break;
                     case "RAW":
-                        showModalForRaw(stage,root,file.toString(),saveImage);
+                        showModalForRaw(stage,root,file.toString());
                         break;
                     default:
                         showErrorModal(stage,"El formato de archivo es inválido. Solo se aceptan imágenes con extensión .ppm .pgm o .raw");
@@ -175,27 +193,67 @@ public class Main extends Application {
         }
     }
 
-    private void showImage(Stage stage, BorderPane root, Image fxImg, MenuItem saveImage){
-        if (transfImageVIew != null)
-            root.getChildren().remove(transfImageVIew);
+    private void renderStackTop(Stage stage, BorderPane root){
+        removeImages(root);
+
+        renderX(stage, root);
+
+        renderY(stage, root);
+
+        for(int i = 0; i < PREVIEWS; i++){
+            if(stack.size() < 2+i+1)
+                break;
+            formats.Image image = stack.peek(2+i);
+            renderStackPreView(stage, root, image, P_X, P_Y - i*(PREVIEW_SEPARATION+PREVIEW_HEIGHT));
+        }
+
+    }
+
+    private void removeImages(BorderPane root){
+        if (xImageView != null)
+            root.getChildren().remove(xImageView);
+        if (yImageView != null)
+            root.getChildren().remove(yImageView);
+        for(int i = 0; i < PREVIEWS; i++){
+            if (previews[i] == null)
+                break;
+            root.getChildren().remove(previews[i]);
+        }
+    }
+
+
+    private ImageView renderStackPreView(Stage stage, BorderPane root, formats.Image image, double x, double y){
+
+        Image fxImg = SwingFXUtils.toFXImage(image.toBufferedImage(), null);
+
         ImageView iv = new ImageView(fxImg);
 
-        iv.setX(50);
-        iv.setY(40);
+        iv.setX(x);
+        iv.setY(y);
 
-
-
+        iv.setFitWidth(PREVIEW_WIDTH);
+        iv.setFitHeight(PREVIEW_HEIGHT);
         iv.setPreserveRatio(true);
 
-        Text avgText = getAverage(stage,img);
-        avgText.setX(50);
-        avgText.setY(40+img.getHeight()+30);
-        root.getChildren().addAll(iv,avgText);
+        root.getChildren().addAll(iv);
+
+        return iv;
+    }
 
 
+    private ImageView renderImage(Stage stage, BorderPane root, formats.Image image, double x, double y){
 
-        stage.setWidth((iv.getImage().getWidth() * 2) + 200);
-        stage.setHeight( (iv.getImage().getHeight()) + 300);
+        Image fxImg = SwingFXUtils.toFXImage(image.toBufferedImage(), null);
+
+        ImageView iv = new ImageView(fxImg);
+
+        iv.setX(x);
+        iv.setY(y);
+
+        iv.setFitWidth(MAX_WIDTH);
+        iv.setFitHeight(MAX_HEIGHT);
+        iv.setPreserveRatio(true);
+
         final Rectangle selection = new Rectangle();
         final Light.Point anchor = new Light.Point();
 
@@ -218,45 +276,44 @@ public class Main extends Application {
         });
 
 
-        formats.Image finalFormattedImg = img;
         iv.setOnMouseReleased(event -> {
-            root.getChildren().remove(transfImageVIew);
-            root.getChildren().remove(transfImgAvg);
             int x1 = (int) (selection.getX() - iv.getX());
             int y1 = (int) (selection.getY() - iv.getY());
             int x2 = (int) (x1+selection.getWidth());
             int y2 = (int) (y1 + selection.getHeight());
             System.out.println("x1 = "+x1 + "; y1 = "+y1+"; x2 = "+x2+"; y2 = "+y2);
-            int width = finalFormattedImg.getWidth();
-            int height = finalFormattedImg.getHeight();
+            int width = image.getWidth();
+            int height = image.getHeight();
             if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
-                saveImage.setDisable(false);
-                transfImg = finalFormattedImg.copy(x1, y1, x2, y2);
-                Image fxTransfImg = SwingFXUtils.toFXImage(transfImg.toBufferedImage(), null);
-
-                transfImageVIew = new ImageView(fxTransfImg);
-
-                //Setting the position of the image
-                transfImageVIew.setX(iv.getImage().getWidth() + 150);
-                transfImageVIew.setY(40);
-
-
-                //Setting the preserve ratio of the image view
-                transfImageVIew.setPreserveRatio(true);
-
-                transfImgAvg = getAverage(stage,transfImg);
-                transfImgAvg.setX(iv.getImage().getWidth() + 150);
-                transfImgAvg.setY(40+transfImg.getHeight()+30);
-                root.getChildren().addAll(transfImageVIew,transfImgAvg);
-            } else{
-                saveImage.setDisable(true);
+                pushAndRender(image.copy(x1, y1, x2, y2), stage, root);
             }
             root.getChildren().remove(selection);
             selection.setWidth(0);
             selection.setHeight(0);
 
-
         });
+        root.getChildren().addAll(iv);
+
+        return iv;
+    }
+
+    private void renderX(Stage stage, BorderPane root){
+        if(stack.isEmpty())
+            return;
+
+        formats.Image X = stack.peek();
+
+        xImageView = renderImage(stage, root, X, X_X, X_Y);
+    }
+
+    private void renderY(Stage stage, BorderPane root){
+        if(stack.size() < 2)
+            return;
+
+
+        formats.Image Y = stack.peek(1);
+
+        yImageView = renderImage(stage, root, Y, Y_X, Y_Y);
 
     }
 
@@ -283,7 +340,8 @@ public class Main extends Application {
         return grayLabel;
     }
 
-    private void showModalForRaw(Stage stage, BorderPane root ,String path,MenuItem saveImage){
+
+    private void showModalForRaw(Stage stage, BorderPane root ,String path){
         Text widthLabel = new Text("Ancho");
         Text heightLabel = new Text("Alto");
 
@@ -329,13 +387,11 @@ public class Main extends Application {
             try {
                 Integer width = new Integer(widthField.getText());
                 Integer height = new Integer(heightField.getText());
-                img = new Raw(width,height,Encoding.GS,path);
+                pushAndRender(new Raw(width,height,Encoding.GS,path), stage, root);
             } catch (Exception e) {
                 showErrorModal(stage,"Las dimensiones ingresadas son incorrectas");
                 return;
             }
-            Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
-            showImage(stage,root,fxImg,saveImage);
             newWindow.close();
         });
     }

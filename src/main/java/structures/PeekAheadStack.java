@@ -38,5 +38,13 @@ public interface PeekAheadStack<E> {
      */
     E peek(int n);
 
+    /**
+     *
+     * @return true if this {@link PeekAheadStack} is empty
+     */
+    default boolean isEmpty(){
+        return size() == 0;
+    }
+
 
 }
