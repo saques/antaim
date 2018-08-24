@@ -163,8 +163,19 @@ public class Main extends Application {
                     case "RAW":
                         showModalForRaw(stage,root,file.toString());
                         break;
+                    case "JPG":
+                    case "JPEG":
+                    case "PNG":
+                    case "BMP":
+                        try {
+                            System.out.println(file.toString());
+                            pushAndRender(new formats.Image(file.toString()), stage, root);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        break;
                     default:
-                        showErrorModal(stage,"El formato de archivo es inválido. Solo se aceptan imágenes con extensión .ppm .pgm o .raw");
+                        showErrorModal(stage,"Formato de imagen no aceptado.");
                         break;
 
                 }
@@ -204,7 +215,7 @@ public class Main extends Application {
             if(stack.size() < 2+i+1)
                 break;
             formats.Image image = stack.peek(2+i);
-            renderStackPreView(stage, root, image, P_X, P_Y - i*(PREVIEW_SEPARATION+PREVIEW_HEIGHT));
+            previews[i] = renderStackPreView(stage, root, image, P_X, P_Y - i*(PREVIEW_SEPARATION+PREVIEW_HEIGHT));
         }
 
     }
@@ -215,9 +226,10 @@ public class Main extends Application {
         if (yImageView != null)
             root.getChildren().remove(yImageView);
         for(int i = 0; i < PREVIEWS; i++){
-            if (previews[i] == null)
+            if(previews[i] == null)
                 break;
             root.getChildren().remove(previews[i]);
+            previews[i] = null;
         }
     }
 
