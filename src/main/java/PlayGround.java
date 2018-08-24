@@ -1,7 +1,4 @@
-import formats.Encoding;
-import formats.Image;
-import formats.Pgm;
-import formats.Raw;
+import formats.*;
 import utils.ImageDrawingUtils;
 
 import javax.imageio.ImageIO;
@@ -15,12 +12,22 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        lenaAddGS();
+        testLena();
     }
 
     /**
      * Try me
      */
+
+    public static void testPutin() throws IOException{
+        Image putin = new Image("images\\putin.jpg").negative();
+        ImageIO.write(putin.toBufferedImage(), "bmp", new File("images\\putinpromjpg.BMP"));
+    }
+
+    public static void testLena() throws IOException{
+        Image lena = new Image("images\\lena.jpg").equalize();
+        ImageIO.write(lena.toBufferedImage(), "bmp", new File("images\\lenafromjpg.BMP"));
+    }
 
     public static void lenaSubGS() throws IOException{
         Image GS = ImageDrawingUtils.scale(Encoding.GS, ImageDrawingUtils.grayScale);

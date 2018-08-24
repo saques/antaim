@@ -6,7 +6,10 @@ import interfaces.TriFunction;
 import lombok.Getter;
 import utils.MathUtils;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.function.BiFunction;
 
@@ -35,6 +38,22 @@ public class Image implements Cloneable{
         this.encoding = encoding;
         if(initData)
             data = new double[width*height*encoding.getBands()];
+    }
+
+    public Image(String path) throws IOException {
+        this(0, 0, Encoding.RGB, false);
+        BufferedImage bufferedImage = ImageIO.read(new File(path));
+        width = bufferedImage.getWidth();
+        height = bufferedImage.getHeight();
+        data = new double[width*height*encoding.getBands()];
+        for(int x = 0; x < width; x++){
+            for(int y = 0; y < height; y++){
+                int pixel = bufferedImage.getRGB(x, y);
+                for(int c = 0; c < encoding.getBands(); c++){
+                    setComponent(x, y, c, byteToDouble((byte)(0xFF&pixel>>(8*(encoding.getBands()-c-1)))));
+                }
+            }
+        }
     }
 
     @Override
