@@ -14,12 +14,19 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        saltAndPepper();
+        medianFilter();
     }
 
     /**
      * Try me
      */
+
+    public static void medianFilter() throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        img.contaminate(1, new SaltAndPepperGenerator(0.05), NoiseApplyMode.DESTRUCTIVE);
+        ImageIO.write(img.toBufferedImage(), "bmp", new File("images\\lenaContaminated.BMP"));
+        ImageIO.write(img.medianFilter(3).toBufferedImage(), "bmp", new File("images\\lenaTreated.BMP"));
+    }
 
     public static void saltAndPepper() throws IOException{
         Image img = new Image("images\\lena.jpg");

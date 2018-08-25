@@ -13,6 +13,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.function.BiFunction;
 
 public class Image implements Cloneable{
@@ -599,6 +601,36 @@ public class Image implements Cloneable{
         ans.contaminate(density, generator, mode);
         return ans;
     }
+
+
+    public Image medianFilter(int n){
+        if((n % 2) == 0 || encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+        int d = n/2;
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    List<Double> list = new LinkedList<>();
+                    for(int x = i - d; x <= i + d; x ++){
+                        for(int y = j - d; y <= j + d; y++){
+                            if(!ans.isOutOfBounds(x, y))
+                                list.add(getComponent(x, y, c));
+                        }
+                    }
+                    ans.setComponent(i, j, c, MathUtils.median(list));
+                }
+            }
+        }
+
+        return ans;
+
+    }
+
+
+
 
 
     public Image copy(int x1, int y1, int x2, int y2){
