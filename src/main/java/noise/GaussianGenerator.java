@@ -1,13 +1,12 @@
 package noise;
 
 import lombok.AllArgsConstructor;
-import lombok.Generated;
 import lombok.Getter;
 
 import java.util.Random;
 
 @AllArgsConstructor
-public class GaussianGenerator implements DistributionGenerator {
+public class GaussianGenerator implements NoiseGenerator {
 
     @Getter
     private double sigma, mu;

@@ -21,6 +21,8 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.*;
 import javafx.scene.image.Image;
+import noise.NoiseApplyMode;
+import noise.SaltAndPepperGenerator;
 import structures.LinkedListPeekAheadStack;
 import structures.PeekAheadStack;
 import utils.ImageDrawingUtils;
@@ -140,7 +142,7 @@ public class Main extends Application {
         drawMenu.getItems().addAll(shapesMenu, gradationMenu);
 
         /**
-         * OPERATIONS SECRION
+         * OPERATIONS SECTION
          */
         Menu opsMenu = new Menu("Operations");
 
@@ -223,7 +225,16 @@ public class Main extends Application {
         opsMenu.getItems().addAll(unaryOps, binaryOps);
 
 
-        menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu);
+        /**
+         * NOISE SECTION
+         */
+
+        Menu noiseMenu = new Menu("Noise");
+        MenuItem saltAndPepper = new MenuItem("Salt and Pepper");
+        saltAndPepper.setOnAction(x-> saltAndPepper(stage, root));
+        noiseMenu.getItems().addAll(saltAndPepper);
+
+        menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu);
 
     }
 
@@ -635,6 +646,71 @@ public class Main extends Application {
                     throw new Exception();
 
                 formats.Image image = ImageDrawingUtils.scale(Encoding.RGB, (x, y) -> new double[]{R, G, B}, width, height);
+
+                pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid dimensions or colors, try again");
+            }
+            newWindow.close();
+        });
+    }
+
+    private void saltAndPepper(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text centerLabel = new Text("Threshold");
+        Text PLabel = new Text("         p");
+
+        TextField PField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(centerLabel, 0, 0);
+        gridPane.add(PLabel, 0, 1);
+        gridPane.add(PField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        centerLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        PLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Salt and pepper settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double P = Double.valueOf(PField.getText());
+
+                if(P <= 0 || P >= 0.5)
+                    throw new Exception();
+
+                formats.Image image = stack.peek().contaminateO(1, new SaltAndPepperGenerator(P), NoiseApplyMode.DESTRUCTIVE);
 
                 pushAndRender(image, stage, root);
 

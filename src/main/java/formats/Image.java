@@ -4,6 +4,8 @@ package formats;
 import formats.exceptions.NoSuchComponentException;
 import interfaces.TriFunction;
 import lombok.Getter;
+import noise.NoiseApplyMode;
+import noise.NoiseGenerator;
 import utils.MathUtils;
 
 import javax.imageio.ImageIO;
@@ -542,6 +544,63 @@ public class Image implements Cloneable{
         return this;
     }
 
+    public Image contaminate(double density, NoiseGenerator generator, NoiseApplyMode mode){
+        if(encoding.equals(Encoding.HSV) || density < 0 || density > 1)
+            throw new IllegalArgumentException();
+
+        double[] min = new double[encoding.getBands()], max = new double[encoding.getBands()];
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                if(Math.random() < density){
+                    double noise = generator.nextVal();
+                    for(int c = 0 ; c < encoding.getBands(); c++) {
+                        double val = getComponent(i, j, c);
+                        switch (mode) {
+                            case ADDITIVE:
+                                val += noise;
+                                break;
+                            case MULTIPLICATIVE:
+                                val *= noise;
+                                break;
+                            case DESTRUCTIVE:
+                                val = noise == -1 ? val : noise;
+                                break;
+                        }
+                        min[c] = Math.min(min[c], val);
+                        max[c] = Math.max(max[c], val);
+                        setComponent(i, j, c, val);
+                    }
+                }
+            }
+        }
+
+        if(!mode.equals(NoiseApplyMode.DESTRUCTIVE)){
+            for(int i = 0; i < width; i++){
+                for(int j = 0; i < height; j++) {
+                    for(int c = 0; c < encoding.getBands(); c++) {
+                        double val = getComponent(i, j, c);
+                        if (mode.equals(NoiseApplyMode.ADDITIVE)) {
+                            val = (val - min[c]) / (max[c] - min[c]);
+                        } else {
+                            val = dynamicRangeCompression(val, max[c]);
+                        }
+                        setComponent(i, j, c, val);
+                    }
+                }
+            }
+        }
+
+        return this;
+    }
+
+    public Image contaminateO(double density, NoiseGenerator generator, NoiseApplyMode mode){
+        Image ans = this.clone();
+        ans.contaminate(density, generator, mode);
+        return ans;
+    }
+
+
     public Image copy(int x1, int y1, int x2, int y2){
         if(isOutOfBounds(x1, y1) || isOutOfBounds(x2, y2))
             throw new IndexOutOfBoundsException();
@@ -566,6 +625,8 @@ public class Image implements Cloneable{
         }
         return image;
     }
+
+
 
     private int getIntPixel(int x, int y){
         int ans = 0;

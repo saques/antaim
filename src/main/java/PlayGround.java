@@ -1,4 +1,6 @@
 import formats.*;
+import noise.NoiseApplyMode;
+import noise.SaltAndPepperGenerator;
 import utils.ImageDrawingUtils;
 
 import javax.imageio.ImageIO;
@@ -12,12 +14,19 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        testLena();
+        saltAndPepper();
     }
 
     /**
      * Try me
      */
+
+    public static void saltAndPepper() throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        img.contaminate(1, new SaltAndPepperGenerator(0.01), NoiseApplyMode.DESTRUCTIVE);
+        ImageIO.write(img.toBufferedImage(), "bmp", new File("images\\lenaContaminated.BMP"));
+    }
+
 
     public static void testPutin() throws IOException{
         Image putin = new Image("images\\putin.jpg").negative();
