@@ -579,7 +579,7 @@ public class Image implements Cloneable{
 
         if(!mode.equals(NoiseApplyMode.DESTRUCTIVE)){
             for(int i = 0; i < width; i++){
-                for(int j = 0; i < height; j++) {
+                for(int j = 0; j < height; j++) {
                     for(int c = 0; c < encoding.getBands(); c++) {
                         double val = getComponent(i, j, c);
                         if (mode.equals(NoiseApplyMode.ADDITIVE)) {

@@ -326,7 +326,7 @@ public class Main extends Application {
         FileChooser fileChooser = new FileChooser();
 
         //Set extension filter
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("BMP files (*.bmp)", "*.bmp");
+        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("PNG files (*.png)", "*.png");
         fileChooser.getExtensionFilters().add(extFilter);
 
         //Show save file dialog
@@ -335,7 +335,7 @@ public class Main extends Application {
         if(file != null){
             try {
                 ImageIO.write(image.toBufferedImage(),
-                        "bmp", new File(file.toString()));
+                        "png", new File(file.toString()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -721,7 +721,7 @@ public class Main extends Application {
                 if(P <= 0 || P >= 0.5)
                     throw new Exception();
 
-                formats.Image image = stack.peek().contaminateO(1, new SaltAndPepperGenerator(P), NoiseApplyMode.DESTRUCTIVE);
+                formats.Image image = stack.pop().contaminateO(1, new SaltAndPepperGenerator(P), NoiseApplyMode.DESTRUCTIVE);
 
                 pushAndRender(image, stage, root);
 
@@ -995,8 +995,8 @@ public class Main extends Application {
                 Double G = Double.valueOf(GField.getText());
                 Double B = Double.valueOf(BField.getText());
 
-                formats.Image image = stack.peek();
 
+                formats.Image image = stack.peek();
                 if(R < 0 || G < 0 || B < 0 || R > 1 || G > 1 || B > 1 || image.isOutOfBounds(x1, y1) || image.isOutOfBounds(x2, y2) || x2 <= x1 || y2 <= y1)
                     throw new Exception();
 
