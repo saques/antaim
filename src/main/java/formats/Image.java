@@ -624,9 +624,34 @@ public class Image implements Cloneable{
                 }
             }
         }
+        return ans;
+    }
+
+    private static final double[][] WEIGHTED_MEDIAN_MATRIX = {{1, 2, 1}, {2, 4, 2}, {1, 2, 1}};
+
+    public Image weightedMedianFilter(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    List<Double> list = new LinkedList<>();
+                    for(int x = i - 1; x <= i + 1; x ++){
+                        for(int y = j - 1; y <= j + 1; y++){
+                            if(!ans.isOutOfBounds(x, y))
+                                for (int t = 0; t < WEIGHTED_MEDIAN_MATRIX[x + 1 - i][y + 1 - j]; t++)
+                                    list.add(getComponent(x, y, c));
+                        }
+                    }
+                    ans.setComponent(i, j, c, MathUtils.median(list));
+                }
+            }
+        }
 
         return ans;
-
     }
 
 

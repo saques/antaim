@@ -235,6 +235,7 @@ public class Main extends Application {
         noiseMenu.getItems().addAll(saltAndPepper);
 
 
+
         /**
          * FILTERS SECTION
          */
@@ -242,7 +243,16 @@ public class Main extends Application {
         Menu filtersMenu = new Menu("Filters");
         MenuItem median = new MenuItem("Median");
         median.setOnAction(x-> medianFilter(stage, root));
-        filtersMenu.getItems().addAll(median);
+        MenuItem weightedMedian = new MenuItem("Weighted median");
+        weightedMedian.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.weightedMedianFilter(), stage, root);
+        });
+        filtersMenu.getItems().addAll(median, weightedMedian);
 
 
         menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu);
