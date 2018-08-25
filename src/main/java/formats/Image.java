@@ -194,8 +194,14 @@ public class Image implements Cloneable{
 
     }
 
+    public boolean isBinaryOperandCompatible(Image o){
+        if(!this.encoding.equals(o.encoding) || this.width != o.width || this.height != o.height)
+            return false;
+        return true;
+    }
+
     public Image add(Image image){
-        if(!this.encoding.equals(image.encoding) || this.width != image.width || this.height != image.height)
+        if(!isBinaryOperandCompatible(image))
             throw new IllegalArgumentException();
         Image ans = clone();
 
@@ -205,7 +211,7 @@ public class Image implements Cloneable{
     }
 
     public Image subtract(Image image){
-        if(!this.encoding.equals(image.encoding))
+        if(!isBinaryOperandCompatible(image))
             throw new IllegalArgumentException();
         Image ans = clone();
 
@@ -215,7 +221,7 @@ public class Image implements Cloneable{
     }
 
     public Image product(Image image){
-        if(!this.encoding.equals(image.encoding))
+        if(!isBinaryOperandCompatible(image))
             throw new IllegalArgumentException();
         Image ans = clone();
 

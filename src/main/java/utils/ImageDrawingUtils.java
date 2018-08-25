@@ -94,4 +94,15 @@ public final class ImageDrawingUtils {
         return image;
     }
 
+    public static Image scale(Encoding encoding, GradientColour gradientColour, int width, int height){
+        Image image = new Image(width, height, encoding, true);
+        for(int x = 0; x < image.getWidth(); x++)
+            for(int y = 0; y < image.getWidth(); y++)
+                image.setComponentsRGB(x, y, gradientColour.compute(x, y));
+        return image;
+    }
+
+
+
+
 }
