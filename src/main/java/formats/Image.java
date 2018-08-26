@@ -546,6 +546,32 @@ public class Image implements Cloneable{
         return this;
     }
 
+    public Image toGS(){
+        if(encoding.equals(Encoding.GS))
+            return clone();
+        Image ans = new Image(width, height, Encoding.GS, true);
+        switch (encoding){
+            case RGB:
+                for(int x = 0; x < width; x++){
+                    for(int y = 0; y < height; y++){
+                        ans.setComponent(x, y, 0, getComponent(x, y, 0));
+                    }
+                }
+                break;
+            case GS:
+                break;
+            case HSV:
+                for(int x = 0; x < width; x++){
+                    for(int y = 0; y < height; y++){
+                        //V
+                        ans.setComponent(x, y, 0, getComponent(x, y, 2));
+                    }
+                }
+                break;
+        }
+        return ans;
+    }
+
     public Image contaminate(double density, NoiseGenerator generator, NoiseApplyMode mode){
         if(encoding.equals(Encoding.HSV) || density < 0 || density > 1)
             throw new IllegalArgumentException();
@@ -616,7 +642,7 @@ public class Image implements Cloneable{
                     List<Double> list = new LinkedList<>();
                     for(int x = i - d; x <= i + d; x ++){
                         for(int y = j - d; y <= j + d; y++){
-                            if(!ans.isOutOfBounds(x, y))
+                            if(!isOutOfBounds(x, y))
                                 list.add(getComponent(x, y, c));
                         }
                     }
@@ -624,9 +650,59 @@ public class Image implements Cloneable{
                 }
             }
         }
-
         return ans;
+    }
 
+    private static final double[][] WEIGHTED_MEDIAN_MATRIX = {{1, 2, 1}, {2, 4, 2}, {1, 2, 1}};
+
+    public Image weightedMedianFilter(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    List<Double> list = new LinkedList<>();
+                    for(int x = i - 1; x <= i + 1; x ++){
+                        for(int y = j - 1; y <= j + 1; y++){
+                            if(!isOutOfBounds(x, y))
+                                for (int t = 0; t < WEIGHTED_MEDIAN_MATRIX[x + 1 - i][y + 1 - j]; t++)
+                                    list.add(getComponent(x, y, c));
+                        }
+                    }
+                    ans.setComponent(i, j, c, MathUtils.median(list));
+                }
+            }
+        }
+        return ans;
+    }
+
+    private static final double[][] CONTOUR_ENHANCEMENT = {{-1, -1, -1}, {-1, 8, -1}, {-1, -1, -1}};
+
+
+    public Image contourEnhancement(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    double acum = 0;
+                    for(int x = i - 1; x <= i + 1; x ++){
+                        for(int y = j - 1; y <= j + 1; y++){
+                            double val = isOutOfBounds(x, y) ? 1 : getComponent(x, y, c);
+                            acum += (1.0/9.0)*val*CONTOUR_ENHANCEMENT[x + 1 - i][y + 1 - j];
+                        }
+                        ans.setComponent(i, j, c, acum);
+                    }
+                }
+            }
+        }
+        return ans;
     }
 
 
@@ -783,7 +859,7 @@ public class Image implements Cloneable{
     }
 
     public static double round(double d){
-        return Math.floor(d/U)*U;
+        return byteToDouble(doubleToByte(d));
     }
 
 }

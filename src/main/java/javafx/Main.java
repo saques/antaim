@@ -6,6 +6,7 @@ import formats.Ppm;
 import formats.Raw;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
@@ -175,7 +176,18 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.equalize(), stage, root);
         });
-        unaryOps.getItems().addAll(negative, automaticContrast, equalization);
+        MenuItem threshold = new MenuItem("Threshold");
+        threshold.setOnAction(x-> threshold(stage, root));
+        MenuItem greyscale = new MenuItem("Greyscale");
+        greyscale.setOnAction(x-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.toGS(), stage, root);
+        });
+        unaryOps.getItems().addAll(negative, automaticContrast, equalization, greyscale, threshold);
 
 
         //Binary
@@ -235,6 +247,7 @@ public class Main extends Application {
         noiseMenu.getItems().addAll(saltAndPepper);
 
 
+
         /**
          * FILTERS SECTION
          */
@@ -242,7 +255,25 @@ public class Main extends Application {
         Menu filtersMenu = new Menu("Filters");
         MenuItem median = new MenuItem("Median");
         median.setOnAction(x-> medianFilter(stage, root));
-        filtersMenu.getItems().addAll(median);
+        MenuItem weightedMedian = new MenuItem("Weighted median");
+        weightedMedian.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.weightedMedianFilter(), stage, root);
+        });
+        MenuItem contourEnhancement = new MenuItem("Contour enhancement");
+        contourEnhancement.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.contourEnhancement(), stage, root);
+        });
+        filtersMenu.getItems().addAll(median, weightedMedian, contourEnhancement);
 
 
         menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu);
@@ -326,7 +357,7 @@ public class Main extends Application {
         FileChooser fileChooser = new FileChooser();
 
         //Set extension filter
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("BMP files (*.bmp)", "*.bmp");
+        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("PNG files (*.png)", "*.png");
         fileChooser.getExtensionFilters().add(extFilter);
 
         //Show save file dialog
@@ -335,7 +366,7 @@ public class Main extends Application {
         if(file != null){
             try {
                 ImageIO.write(image.toBufferedImage(),
-                        "bmp", new File(file.toString()));
+                        "png", new File(file.toString()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -721,12 +752,12 @@ public class Main extends Application {
                 if(P <= 0 || P >= 0.5)
                     throw new Exception();
 
-                formats.Image image = stack.peek().contaminateO(1, new SaltAndPepperGenerator(P), NoiseApplyMode.DESTRUCTIVE);
+                formats.Image image = stack.pop().contaminateO(1, new SaltAndPepperGenerator(P), NoiseApplyMode.DESTRUCTIVE);
 
                 pushAndRender(image, stage, root);
 
             } catch (Exception e) {
-                showErrorModal(stage,"Invalid dimensions or colors, try again");
+                showErrorModal(stage,"Invalid threshold, try again");
             }
             newWindow.close();
         });
@@ -770,7 +801,7 @@ public class Main extends Application {
 
 
         Stage newWindow = new Stage();
-        newWindow.setTitle("Salt and pepper settings");
+        newWindow.setTitle("Median filter settings");
         newWindow.setScene(scene);
 
         newWindow.setX(stage.getX() + 200);
@@ -791,11 +822,78 @@ public class Main extends Application {
                 pushAndRender(image, stage, root);
 
             } catch (Exception e) {
-                showErrorModal(stage,"Invalid dimensions or colors, try again");
+                showErrorModal(stage,"Invalid grid size, try again");
             }
             newWindow.close();
         });
     }
+
+
+    private void threshold(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text centerLabel = new Text("Value");
+        Text muLabel = new Text("        mu");
+
+        TextField muField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(centerLabel, 0, 0);
+        gridPane.add(muLabel, 0, 1);
+        gridPane.add(muField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        centerLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        muLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Threshold settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double mu = Double.valueOf(muField.getText());
+
+                if(mu < 0 || mu > 1)
+                    throw new Exception();
+
+                formats.Image image = stack.pop().thresholding(mu);
+
+                pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid threshold value, try again");
+            }
+            newWindow.close();
+        });
+    }
+
 
 
 
@@ -995,8 +1093,8 @@ public class Main extends Application {
                 Double G = Double.valueOf(GField.getText());
                 Double B = Double.valueOf(BField.getText());
 
-                formats.Image image = stack.peek();
 
+                formats.Image image = stack.peek();
                 if(R < 0 || G < 0 || B < 0 || R > 1 || G > 1 || B > 1 || image.isOutOfBounds(x1, y1) || image.isOutOfBounds(x2, y2) || x2 <= x1 || y2 <= y1)
                     throw new Exception();
 
