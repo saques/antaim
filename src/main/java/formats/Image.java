@@ -747,7 +747,6 @@ public class Image implements Cloneable{
         double accum;
         BiFunction <Integer, Integer ,Double > gauss = ( x , y ) -> ( 1 / (2 * Math.PI * Math.pow(sigma,2))) * Math.exp( (- (Math.pow(x,2) + Math.pow(y,2)) ) / ( 2 * Math.pow(sigma,2)) );
 
-
         for(int i = 0; i < width; i++){
             for(int j = 0; j < height; j++){
                 for(int c = 0; c < encoding.getBands(); c++){
@@ -755,7 +754,7 @@ public class Image implements Cloneable{
                     accum = 0.0;
                     for(int x = i - d; x <= i + d; x ++){
                         for(int y = j - d; y <= j + d; y++){
-                            if(!ans.isOutOfBounds(x, y)){
+                            if(!isOutOfBounds(x, y)){
                                 aux +=  gauss.apply(i - x,j - y) * getComponent(x,y,c);
                                 accum += gauss.apply( i - x, j - y);
                             }
@@ -763,7 +762,6 @@ public class Image implements Cloneable{
                     }
                     aux /= accum;
                     ans.setComponent(i, j, c, aux );
-
                 }
             }
         }

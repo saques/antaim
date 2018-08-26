@@ -271,6 +271,8 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.weightedMedianFilter(), stage, root);
         });
+        MenuItem gauss = new MenuItem("Gauss");
+        gauss.setOnAction(e-> gaussFilter(stage, root));
         MenuItem contourEnhancement = new MenuItem("Contour enhancement");
         contourEnhancement.setOnAction(e-> {
             if(stack.isEmpty()){
@@ -280,8 +282,7 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.contourEnhancement(), stage, root);
         });
-        filtersMenu.getItems().addAll(median, weightedMedian, contourEnhancement);
-
+        filtersMenu.getItems().addAll(median, weightedMedian, gauss, contourEnhancement);
 
         menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu);
 
@@ -938,6 +939,75 @@ public class Main extends Application {
                 ImageDrawingUtils.drawCircle(image,x,y,radius, (j, k) -> new double[]{R,G,B});
 
                 renderStackTop(stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid dimensions, try again");
+            }
+            newWindow.close();
+        });
+
+    }
+
+    private void gaussFilter(Stage stage, BorderPane root){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text NLabel = new Text("N");
+        Text SIGMALabel = new Text("SIGMA");
+
+        TextField NField = new TextField();
+        TextField SIGMAField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(NLabel, 0, 0);
+        gridPane.add(NField, 1, 0);
+        gridPane.add(SIGMALabel, 0, 1);
+        gridPane.add(SIGMAField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        NLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        SIGMALabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Gauss filter");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Double SIGMA = Double.valueOf(SIGMAField.getText());
+                Integer N = Integer.valueOf(NField.getText());
+
+
+                if(SIGMA < 0 || (N%2) == 0) {
+                    throw new Exception();
+                }
+
+                formats.Image image = stack.pop();
+
+                pushAndRender(image.gaussFilter(N, SIGMA), stage, root);
 
             } catch (Exception e) {
                 showErrorModal(stage,"Invalid dimensions, try again");
