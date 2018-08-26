@@ -707,6 +707,72 @@ public class Image implements Cloneable{
     }
 
 
+    public Image meanFilter(int n){
+        if((n % 2) == 0 || encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+        int d = n/2;
+        double aux;
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    aux = 0.0;
+                    for(int x = i - d; x <= i + d; x ++){
+                        for(int y = j - d; y <= j + d; y++){
+                            if(!ans.isOutOfBounds(x, y))
+                                aux +=  getComponent(x,y,c);
+                        }
+                    }
+                    aux /= Math.pow(n,2);
+                    ans.setComponent(i, j, c, aux);
+                }
+            }
+        }
+
+        return ans;
+
+    }
+
+
+
+    public Image gaussFilter(int n , double sigma){
+        if((n % 2) == 0 || encoding.equals(Encoding.HSV) || sigma < 0)
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+        int d = n/2;
+        double aux;
+        double accum;
+        BiFunction <Integer, Integer ,Double > gauss = ( x , y ) -> ( 1 / (2 * Math.PI * Math.pow(sigma,2))) * Math.exp( (- (Math.pow(x,2) + Math.pow(y,2)) ) / ( 2 * Math.pow(sigma,2)) );
+
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    aux = 0.0;
+                    accum = 0.0;
+                    for(int x = i - d; x <= i + d; x ++){
+                        for(int y = j - d; y <= j + d; y++){
+                            if(!ans.isOutOfBounds(x, y)){
+                                aux +=  gauss.apply(i - x,j - y) * getComponent(x,y,c);
+                                accum += gauss.apply( i - x, j - y);
+                            }
+                        }
+                    }
+                    aux /= accum;
+                    ans.setComponent(i, j, c, aux );
+
+                }
+            }
+        }
+
+        return ans;
+
+    }
+
+
 
 
 

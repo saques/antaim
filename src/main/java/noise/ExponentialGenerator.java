@@ -3,21 +3,23 @@ package noise;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.util.Arrays;
 import java.util.Random;
-import java.util.function.BiFunction;
 
 @AllArgsConstructor
-public class GaussianGenerator implements NoiseGenerator {
+public class ExponentialGenerator implements NoiseGenerator {
 
     @Getter
-    private double sigma, mu;
+    private double lambda;
 
     @Getter
     private Random rand ;
 
     @Override
     public double nextVal() {
-        return rand.nextGaussian() * sigma;
+        return (-1/lambda) * Math.log(rand.nextDouble());
     }
+
+
 
 }
