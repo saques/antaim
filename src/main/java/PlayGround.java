@@ -1,6 +1,5 @@
 import formats.*;
-import noise.NoiseApplyMode;
-import noise.SaltAndPepperGenerator;
+import noise.*;
 import utils.ImageDrawingUtils;
 
 import javax.imageio.ImageIO;
@@ -14,7 +13,8 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        medianFilter();
+
+        meanFilter(3);
     }
 
     /**
@@ -31,6 +31,38 @@ public final class PlayGround {
     public static void saltAndPepper() throws IOException{
         Image img = new Image("images\\lena.jpg");
         img.contaminate(1, new SaltAndPepperGenerator(0.01), NoiseApplyMode.DESTRUCTIVE);
+        ImageIO.write(img.toBufferedImage(), "bmp", new File("images\\lenaContaminated.BMP"));
+    }
+
+    public static void meanFilter(int n) throws IOException{
+        Image img = new Image("images\\BARCO.BMP");
+        ImageIO.write(img.meanFilter(n).toBufferedImage(), "bmp", new File("images\\barcoTreatedMean.BMP"));
+    }
+
+
+    public static void gaussFilter(int n , double sigma) throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        img.contaminate(0.1, new GaussianNoiseGenerator(sigma,0), NoiseApplyMode.ADDITIVE);
+        ImageIO.write(img.toBufferedImage(), "bmp", new File("images\\lenaContaminated.BMP"));
+        ImageIO.write(img.gaussFilter(n,sigma).toBufferedImage(), "bmp", new File("images\\lenaTreated.BMP"));
+    }
+
+
+    public static void gaussianNoise(double sigma) throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        img.contaminate(1, new GaussianNoiseGenerator(sigma,0), NoiseApplyMode.ADDITIVE);
+        ImageIO.write(img.toBufferedImage(), "bmp", new File("images\\lenaContaminated.BMP"));
+    }
+
+    public static void exponentialNoise(double lambda) throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        img.contaminate(1, new ExponentialNoiseGenerator(lambda), NoiseApplyMode.MULTIPLICATIVE);
+        ImageIO.write(img.toBufferedImage(), "bmp", new File("images\\lenaContaminated.BMP"));
+    }
+
+    public static void rayleighNoise(double fi) throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        img.contaminate(1, new RayleighNoiseGenerator(fi), NoiseApplyMode.MULTIPLICATIVE);
         ImageIO.write(img.toBufferedImage(), "bmp", new File("images\\lenaContaminated.BMP"));
     }
 

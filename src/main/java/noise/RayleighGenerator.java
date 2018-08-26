@@ -4,20 +4,20 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.util.Random;
-import java.util.function.BiFunction;
 
 @AllArgsConstructor
-public class GaussianGenerator implements NoiseGenerator {
+public class RayleighGenerator implements NoiseGenerator {
 
     @Getter
-    private double sigma, mu;
+    private double fi;
 
     @Getter
     private Random rand ;
 
     @Override
     public double nextVal() {
-        return rand.nextGaussian() * sigma;
+        return fi * Math.sqrt( (-2) * Math.log( 1 - rand.nextDouble() ) );
     }
+
 
 }
