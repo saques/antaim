@@ -554,7 +554,8 @@ public class Image implements Cloneable{
             case RGB:
                 for(int x = 0; x < width; x++){
                     for(int y = 0; y < height; y++){
-                        ans.setComponent(x, y, 0, getComponent(x, y, 0));
+                        double val = getComponent(x, y, 0) + getComponent(x, y, 1) + getComponent(x, y, 2);
+                        ans.setComponent(x, y, 0, val/3);
                     }
                 }
                 break;

@@ -33,15 +33,15 @@ import java.io.IOException;
 
 public class Main extends Application {
 
-    private static final double MAX_WIDTH = 256;
-    private static final double MAX_HEIGHT = 256;
+    private static final double MAX_WIDTH = 384;
+    private static final double MAX_HEIGHT = 384;
 
     private static final int PREVIEWS = 5;
     private static final double PREVIEW_WIDTH = 64;
     private static final double PREVIEW_HEIGHT = 64;
     private static final double PREVIEW_SEPARATION = 16;
 
-    private static final double Y_X = 256, Y_Y = 64;
+    private static final double Y_X = 256, Y_Y = 96;
     private static final double X_X = 256, X_Y = 32+Y_Y+MAX_HEIGHT;
     private static final double P_X = 128, P_Y = X_Y+(MAX_HEIGHT-PREVIEW_HEIGHT);
 
@@ -70,6 +70,7 @@ public class Main extends Application {
         Button enter = new Button("ENTER");
         Button pop = new Button("POP");
         Button swap = new Button("X <-> Y");
+        Button crop = new Button("CROP");
         Button save = new Button("SAVE");
 
         enter.setOnAction(e-> {
@@ -88,6 +89,12 @@ public class Main extends Application {
             renderStackTop(stage, root);
         });
 
+        crop.setOnAction(e-> {
+            if(stack.isEmpty())
+                return;
+            cropImage(stage, root);
+        });
+
         save.setOnAction(e-> {
             if(stack.isEmpty())
                 return;
@@ -98,7 +105,7 @@ public class Main extends Application {
         HBox bottom = new HBox();
         bottom.setPadding(new Insets(30));
         bottom.setSpacing(30);
-        bottom.getChildren().addAll(enter, pop, swap, save);
+        bottom.getChildren().addAll(enter, pop, swap, crop, save);
         root.setBottom(bottom);
 
     }
@@ -292,7 +299,7 @@ public class Main extends Application {
         initializeMenu(stage, root);
 
         root.setStyle("-fx-background-color: WHITE;");
-        stage.setScene(new Scene(root, 1024, 1024));
+        stage.setScene(new Scene(root, 1920, 1040));
 
         stage.show();
     }
@@ -384,7 +391,7 @@ public class Main extends Application {
             if(stack.size() < 2+i+1)
                 break;
             formats.Image image = stack.peek(2+i);
-            previews[i] = renderStackPreView(stage, root, image, P_X, P_Y - i*(PREVIEW_SEPARATION+PREVIEW_HEIGHT));
+            previews[i] = renderImage(stage, root, image, P_X, P_Y - i*(PREVIEW_SEPARATION+PREVIEW_HEIGHT), PREVIEW_WIDTH, PREVIEW_HEIGHT);
         }
 
     }
@@ -403,7 +410,7 @@ public class Main extends Application {
     }
 
 
-    private ImageView renderStackPreView(Stage stage, BorderPane root, formats.Image image, double x, double y){
+    private ImageView renderImage(Stage stage, BorderPane root, formats.Image image, double x, double y, double maxWidth, double maxHeight){
 
         Image fxImg = SwingFXUtils.toFXImage(image.toBufferedImage(), null);
 
@@ -412,67 +419,10 @@ public class Main extends Application {
         iv.setX(x);
         iv.setY(y);
 
-        iv.setFitWidth(PREVIEW_WIDTH);
-        iv.setFitHeight(PREVIEW_HEIGHT);
+        iv.setFitWidth(maxWidth);
+        iv.setFitHeight(maxHeight);
         iv.setPreserveRatio(true);
 
-        root.getChildren().addAll(iv);
-
-        return iv;
-    }
-
-
-    private ImageView renderImage(Stage stage, BorderPane root, formats.Image image, double x, double y){
-
-        Image fxImg = SwingFXUtils.toFXImage(image.toBufferedImage(), null);
-
-        ImageView iv = new ImageView(fxImg);
-
-        iv.setX(x);
-        iv.setY(y);
-
-        iv.setFitWidth(MAX_WIDTH);
-        iv.setFitHeight(MAX_HEIGHT);
-        iv.setPreserveRatio(true);
-
-        final Rectangle selection = new Rectangle();
-        final Light.Point anchor = new Light.Point();
-
-        iv.setOnMousePressed(event -> {
-            anchor.setX(event.getX());
-            anchor.setY(event.getY());
-            selection.setX(event.getX());
-            selection.setY(event.getY());
-            selection.setFill(null); // transparent
-            selection.setStroke(Color.BLACK); // border
-            selection.getStrokeDashArray().add(10.0);
-            root.getChildren().add(selection);
-        });
-
-        iv.setOnMouseDragged(event -> {
-            selection.setWidth(Math.abs(event.getX() - anchor.getX()));
-            selection.setHeight(Math.abs(event.getY() - anchor.getY()));
-            selection.setX(Math.min(anchor.getX(), event.getX()));
-            selection.setY(Math.min(anchor.getY(), event.getY()));
-        });
-
-
-        iv.setOnMouseReleased(event -> {
-            int x1 = (int) (selection.getX() - iv.getX());
-            int y1 = (int) (selection.getY() - iv.getY());
-            int x2 = (int) (x1+selection.getWidth());
-            int y2 = (int) (y1 + selection.getHeight());
-            System.out.println("x1 = "+x1 + "; y1 = "+y1+"; x2 = "+x2+"; y2 = "+y2);
-            int width = image.getWidth();
-            int height = image.getHeight();
-            if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
-                pushAndRender(image.copy(x1, y1, x2, y2), stage, root);
-            }
-            root.getChildren().remove(selection);
-            selection.setWidth(0);
-            selection.setHeight(0);
-
-        });
         root.getChildren().addAll(iv);
 
         return iv;
@@ -484,7 +434,7 @@ public class Main extends Application {
 
         formats.Image X = stack.peek();
 
-        xImageView = renderImage(stage, root, X, X_X, X_Y);
+        xImageView = renderImage(stage, root, X, X_X, X_Y, MAX_WIDTH, MAX_HEIGHT);
     }
 
     private void renderY(Stage stage, BorderPane root){
@@ -494,7 +444,7 @@ public class Main extends Application {
 
         formats.Image Y = stack.peek(1);
 
-        yImageView = renderImage(stage, root, Y, Y_X, Y_Y);
+        yImageView = renderImage(stage, root, Y, Y_X, Y_Y, MAX_WIDTH, MAX_HEIGHT);
 
     }
 
@@ -1173,4 +1123,86 @@ public class Main extends Application {
             newWindow.close();
         });
     }
+
+
+    private void cropImage(Stage stage, BorderPane root){
+        if(stack.isEmpty())
+            return;
+
+        Stage newWindow = new Stage();
+
+
+        formats.Image image = stack.peek();
+        ImageView iv = new ImageView(SwingFXUtils.toFXImage(image.toBufferedImage(), null));
+
+
+
+
+        BorderPane bo = new BorderPane(iv);
+        bo.setMaxWidth(image.getWidth()); bo.setMaxHeight(image.getHeight());
+        ScrollPane scrollPane = new ScrollPane(bo);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+
+        final Rectangle selection = new Rectangle();
+        final Light.Point anchor = new Light.Point();
+
+        iv.setOnMousePressed(event -> {
+            anchor.setX(event.getX());
+            anchor.setY(event.getY());
+            selection.setX(event.getX());
+            selection.setY(event.getY());
+            selection.setFill(null); // transparent
+            selection.setStroke(Color.BLACK); // border
+            selection.getStrokeDashArray().add(10.0);
+            bo.getChildren().add(selection);
+        });
+
+        iv.setOnMouseDragged(event -> {
+            selection.setWidth(Math.abs(event.getX() - anchor.getX()));
+            selection.setHeight(Math.abs(event.getY() - anchor.getY()));
+            selection.setX(Math.min(anchor.getX(), event.getX()));
+            selection.setY(Math.min(anchor.getY(), event.getY()));
+        });
+
+
+        iv.setOnMouseReleased(event -> {
+            int x1 = (int) (selection.getX() - iv.getX());
+            int y1 = (int) (selection.getY() - iv.getY());
+            int x2 = (int) (x1+selection.getWidth());
+            int y2 = (int) (y1 + selection.getHeight());
+            System.out.println("x1 = "+x1 + "; y1 = "+y1+"; x2 = "+x2+"; y2 = "+y2);
+            int width = image.getWidth();
+            int height = image.getHeight();
+            if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
+                pushAndRender(image.copy(x1, y1, x2, y2), stage, root);
+                newWindow.close();
+            }
+            bo.getChildren().remove(selection);
+            selection.setWidth(0);
+            selection.setHeight(0);
+        });
+
+        bo.setStyle("-fx-background-color: WHITE;");
+
+
+
+
+        Scene scene = new Scene(scrollPane);
+
+        newWindow.setTitle("Crop image");
+        newWindow.setScene(scene);
+        newWindow.setWidth(512);
+        newWindow.setHeight(512);
+
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+    }
+
+
 }
