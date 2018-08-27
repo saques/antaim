@@ -10,7 +10,7 @@ public class RayleighNoiseGenerator implements NoiseGenerator {
 
     public RayleighNoiseGenerator(double fi){
         this.fi = fi;
-        this.rg = new RayleighGenerator(fi,new Random());
+        this.rg = new RayleighGenerator(fi,new Random(System.currentTimeMillis()));
     }
 
     @Override

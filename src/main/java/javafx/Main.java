@@ -22,8 +22,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.*;
 import javafx.scene.image.Image;
-import noise.NoiseApplyMode;
-import noise.SaltAndPepperGenerator;
+import noise.*;
 import structures.LinkedListPeekAheadStack;
 import structures.PeekAheadStack;
 import utils.ImageDrawingUtils;
@@ -249,9 +248,15 @@ public class Main extends Application {
          */
 
         Menu noiseMenu = new Menu("Noise");
+        MenuItem gaussian = new MenuItem("Gaussian");
+        gaussian.setOnAction(x-> gaussNoise(stage, root));
+        MenuItem exponential = new MenuItem("Exponential");
+        exponential.setOnAction(x-> exponentialNoise(stage, root));
+        MenuItem rayleigh = new MenuItem("Rayleigh");
+        rayleigh.setOnAction(x-> rayleighNoise(stage, root));
         MenuItem saltAndPepper = new MenuItem("Salt and Pepper");
         saltAndPepper.setOnAction(x-> saltAndPepper(stage, root));
-        noiseMenu.getItems().addAll(saltAndPepper);
+        noiseMenu.getItems().addAll(gaussian, exponential, rayleigh, saltAndPepper);
 
 
 
@@ -260,6 +265,8 @@ public class Main extends Application {
          */
 
         Menu filtersMenu = new Menu("Filters");
+        MenuItem mean = new MenuItem("Mean");
+        mean.setOnAction(x-> meanFilter(stage, root));
         MenuItem median = new MenuItem("Median");
         median.setOnAction(x-> medianFilter(stage, root));
         MenuItem weightedMedian = new MenuItem("Weighted median");
@@ -282,7 +289,7 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.contourEnhancement(), stage, root);
         });
-        filtersMenu.getItems().addAll(median, weightedMedian, gauss, contourEnhancement);
+        filtersMenu.getItems().addAll(mean,median, weightedMedian, gauss, contourEnhancement);
 
         menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu);
 
@@ -779,6 +786,72 @@ public class Main extends Application {
         });
     }
 
+    private void meanFilter(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text centerLabel = new Text("Size");
+        Text NLabel = new Text("         N");
+
+        TextField NField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(centerLabel, 0, 0);
+        gridPane.add(NLabel, 0, 1);
+        gridPane.add(NField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        centerLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        NLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Mean filter settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Integer N = Integer.valueOf(NField.getText());
+
+                if(N <= 0 || (N % 2) == 0)
+                    throw new Exception();
+
+                formats.Image image = stack.pop().meanFilter(N);
+
+                pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid grid size, try again");
+            }
+            newWindow.close();
+        });
+    }
+
+
 
     private void threshold(Stage stage, BorderPane root){
 
@@ -987,7 +1060,7 @@ public class Main extends Application {
 
 
         Stage newWindow = new Stage();
-        newWindow.setTitle("Gauss filter");
+        newWindow.setTitle("Gaussian filter");
         newWindow.setScene(scene);
 
         newWindow.setX(stage.getX() + 200);
@@ -1011,6 +1084,213 @@ public class Main extends Application {
 
             } catch (Exception e) {
                 showErrorModal(stage,"Invalid dimensions, try again");
+            }
+            newWindow.close();
+        });
+
+    }
+
+    private void gaussNoise(Stage stage, BorderPane root){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text DLabel = new Text("Density");
+        Text SIGMALabel = new Text("Sigma");
+
+        TextField DField = new TextField();
+        TextField SIGMAField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(DLabel, 0, 0);
+        gridPane.add(DField, 1, 0);
+        gridPane.add(SIGMALabel, 0, 1);
+        gridPane.add(SIGMAField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        DLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        SIGMALabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Gaussian noise");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Double SIGMA = Double.valueOf(SIGMAField.getText());
+                Double D = Double.valueOf(DField.getText());
+
+
+                if(SIGMA < 0 || D <= 0 || D > 1) {
+                    throw new Exception();
+                }
+
+                formats.Image image = stack.pop();
+
+                pushAndRender(image.contaminateO(D, new GaussianNoiseGenerator(SIGMA, 0), NoiseApplyMode.ADDITIVE), stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid values, try again");
+            }
+            newWindow.close();
+        });
+
+    }
+
+    private void exponentialNoise(Stage stage, BorderPane root){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text DLabel = new Text("Density");
+        Text LAMBDALabel = new Text("Lambda");
+
+        TextField DField = new TextField();
+        TextField LAMBDAField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(DLabel, 0, 0);
+        gridPane.add(DField, 1, 0);
+        gridPane.add(LAMBDALabel, 0, 1);
+        gridPane.add(LAMBDAField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        DLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        LAMBDALabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Exponential noise");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Double LAMBDA = Double.valueOf(LAMBDAField.getText());
+                Double D = Double.valueOf(DField.getText());
+
+
+                if(D <= 0 || D > 1) {
+                    throw new Exception();
+                }
+
+                formats.Image image = stack.pop();
+
+                pushAndRender(image.contaminateO(D, new ExponentialNoiseGenerator(LAMBDA), NoiseApplyMode.MULTIPLICATIVE), stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid values, try again");
+            }
+            newWindow.close();
+        });
+
+    }
+
+    private void rayleighNoise(Stage stage, BorderPane root){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text DLabel = new Text("Density");
+        Text PHILabel = new Text("Phi");
+
+        TextField DField = new TextField();
+        TextField PHIField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(DLabel, 0, 0);
+        gridPane.add(DField, 1, 0);
+        gridPane.add(PHILabel, 0, 1);
+        gridPane.add(PHIField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        DLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        PHILabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Rayleigh noise");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Double PHI = Double.valueOf(PHIField.getText());
+                Double D = Double.valueOf(DField.getText());
+
+
+                if(D <= 0 || D > 1) {
+                    throw new Exception();
+                }
+
+                formats.Image image = stack.pop();
+
+                pushAndRender(image.contaminateO(D, new RayleighNoiseGenerator(PHI), NoiseApplyMode.MULTIPLICATIVE), stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid values, try again");
             }
             newWindow.close();
         });

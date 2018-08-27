@@ -20,6 +20,4 @@ public class ExponentialGenerator implements NoiseGenerator {
         return (-1/lambda) * Math.log(rand.nextDouble());
     }
 
-
-
 }

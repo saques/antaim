@@ -10,7 +10,7 @@ public class ExponentialNoiseGenerator implements NoiseGenerator {
 
     public ExponentialNoiseGenerator(double lambda){
         this.lambda = lambda;
-        this.eg = new ExponentialGenerator(lambda,new Random());
+        this.eg = new ExponentialGenerator(lambda,new Random(System.currentTimeMillis()));
     }
 
     @Override

@@ -13,7 +13,7 @@ public class GaussianNoiseGenerator implements NoiseGenerator {
             throw new IllegalArgumentException();
         this.sigma = sigma;
         this.mu = mu;
-        this.gg = new GaussianGenerator(sigma,mu,new Random());
+        this.gg = new GaussianGenerator(sigma,mu,new Random(System.currentTimeMillis()));
     }
 
     @Override

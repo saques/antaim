@@ -77,6 +77,11 @@ public class Image implements Cloneable{
         data[getIndex(x, y, component, width, encoding)] = round(value);
     }
 
+    public void setComponentNoRound(int x, int y, int component, double value){
+        checkConstraints(x, y, component);
+        data[getIndex(x, y, component, width, encoding)] = value;
+    }
+
     public void setComponents(int x, int y, double[] cmp){
         if(isOutOfBounds(x, y))
             throw new IndexOutOfBoundsException();
@@ -183,7 +188,7 @@ public class Image implements Cloneable{
                 for(int c = 0; c < i1.encoding.getBands(); c++){
                     double val = f.apply(i1.getComponent(i, j, c), i2.getComponent(i, j, c));
                     min[c] = Math.min(min[c], val); max[c] = Math.max(max[c], val);
-                    ans.setComponent(i, j, c, val);
+                    ans.setComponentNoRound(i, j, c, val);
                 }
             }
         }
@@ -598,7 +603,7 @@ public class Image implements Cloneable{
                         }
                         min[c] = Math.min(min[c], val);
                         max[c] = Math.max(max[c], val);
-                        setComponent(i, j, c, val);
+                        setComponentNoRound(i, j, c, val);
                     }
                 }
             }
