@@ -4,7 +4,6 @@ import formats.Encoding;
 import formats.Pgm;
 import formats.Ppm;
 import formats.Raw;
-import iaik.asn1.INTEGER;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
