@@ -4,6 +4,7 @@ import formats.Encoding;
 import formats.Pgm;
 import formats.Ppm;
 import formats.Raw;
+import iaik.asn1.INTEGER;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
@@ -12,7 +13,12 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Group;
 import javafx.scene.Scene;
+import javafx.scene.chart.AreaChart;
+import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.effect.Light;
 import javafx.scene.image.ImageView;
@@ -29,6 +35,7 @@ import utils.ImageDrawingUtils;
 import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 
 public class Main extends Application {
 
@@ -51,6 +58,8 @@ public class Main extends Application {
     private ImageView[] previews = new ImageView[PREVIEWS];
 
     private PeekAheadStack<formats.Image> stack = new LinkedListPeekAheadStack<>();
+
+    private Group histogramGroup;
 
     private void pushAndRender(formats.Image image, Stage stage, BorderPane root){
         stack.push(image);
@@ -405,6 +414,8 @@ public class Main extends Application {
     }
 
     private void removeImages(BorderPane root){
+        if (histogramGroup != null)
+            root.getChildren().remove(histogramGroup);
         if (xImageView != null)
             root.getChildren().remove(xImageView);
         if (yImageView != null)
@@ -443,6 +454,43 @@ public class Main extends Application {
         formats.Image X = stack.peek();
 
         xImageView = renderImage(stage, root, X, X_X, X_Y, MAX_WIDTH, MAX_HEIGHT);
+
+
+        if (X.getEncoding().equals(Encoding.GS)) {
+
+            double[] histogram = X.histogram(0);
+
+            //Defining the X axis
+            NumberAxis xAxis = new NumberAxis(0, 255, 15);
+            xAxis.setLabel("Color");
+
+            //defining the y Axis
+            NumberAxis yAxis = new NumberAxis(0, Arrays.stream(histogram).max().getAsDouble() + 2, 10);
+            yAxis.setLabel("Value");
+
+            //Creating the Area chart
+            AreaChart<String, Number> areaChart = new AreaChart(xAxis, yAxis);
+            areaChart.setTitle("Histogram");
+
+            //Prepare XYChart.Series objects by setting data
+            XYChart.Series series1 = new XYChart.Series();
+
+            for (int i = 0 ; i < histogram.length ; i++) {
+                series1.getData().add(new XYChart.Data(i , histogram[i]));
+            }
+
+            //Setting the XYChart.Series objects to area chart
+            areaChart.getData().addAll(series1);
+
+            if (histogramGroup != null){
+                root.getChildren().remove(histogramGroup);
+            }
+            histogramGroup = new Group(areaChart);
+            histogramGroup.setLayoutX(X_X + MAX_WIDTH + 100);
+            histogramGroup.setLayoutY(Y_Y);
+            root.getChildren().add(histogramGroup);
+        }
+
     }
 
     private void renderY(Stage stage, BorderPane root){
