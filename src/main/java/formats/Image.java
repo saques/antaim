@@ -745,24 +745,27 @@ public class Image implements Cloneable{
         Image ans = clone();
         int d = n/2;
         double aux;
-        double accum;
+        double accum = 0.0;
         BiFunction <Integer, Integer ,Double > gauss = ( x , y ) -> ( 1 / (2 * Math.PI * Math.pow(sigma,2))) * Math.exp( (- (Math.pow(x,2) + Math.pow(y,2)) ) / ( 2 * Math.pow(sigma,2)) );
         double [][] mask = new double [n][n];
+        double auxGaussVal;
         for ( int j = 0  ; j < n ; j++){
             for (int k = 0 ; k < n ; k++ ){
-                mask[j][k] = gauss.apply(j - d, k - d);
+                auxGaussVal = gauss.apply(j - d, k - d);
+                mask[j][k] = auxGaussVal;
+                accum += auxGaussVal;
             }
         }
+
+
         for(int i = 0; i < width; i++){
             for(int j = 0; j < height; j++){
                 for(int c = 0; c < encoding.getBands(); c++){
                     aux = 0.0;
-                    accum = 0.0;
                     for(int x = i - d; x <= i + d; x ++){
                         for(int y = j - d; y <= j + d; y++){
                             if(!isOutOfBounds(x, y)){
                                 aux +=  mask[x - i + d][y - j + d] * getComponent(x,y,c);
-                                accum += mask[ x - i + d][ y - j + d];
                             }
                         }
                     }
