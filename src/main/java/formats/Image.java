@@ -614,11 +614,7 @@ public class Image implements Cloneable{
                 for(int j = 0; j < height; j++) {
                     for(int c = 0; c < encoding.getBands(); c++) {
                         double val = getComponent(i, j, c);
-                        if (mode.equals(NoiseApplyMode.ADDITIVE)) {
-                            val = (val - min[c]) / (max[c] - min[c]);
-                        } else {
-                            val = dynamicRangeCompression(val, max[c]);
-                        }
+                        val = (val - min[c]) / (max[c] - min[c]);
                         setComponent(i, j, c, val);
                     }
                 }
