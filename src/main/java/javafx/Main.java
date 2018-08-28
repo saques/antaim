@@ -201,7 +201,9 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.toGS(), stage, root);
         });
-        unaryOps.getItems().addAll(negative, automaticContrast, equalization, greyscale, threshold);
+        MenuItem gammaCorrection = new MenuItem("Gamma Correction");
+        gammaCorrection.setOnAction(x-> gammaPower(stage, root));
+        unaryOps.getItems().addAll(negative, automaticContrast, equalization, greyscale, threshold,gammaCorrection);
 
 
         //Binary
@@ -456,40 +458,61 @@ public class Main extends Application {
 
 
         if (X.getEncoding().equals(Encoding.GS)) {
+            showHistogram(root,0,X , null);
 
-            double[] histogram = X.histogram(0);
+        } else{
+            Text bandLabel = new Text("Band");
+            ChoiceBox bandChoice = new ChoiceBox(FXCollections.observableArrayList("R", "G", "B"));
+            bandChoice.getSelectionModel().select(0);
+            showHistogram(root,0,X,bandChoice);
+            bandChoice.valueProperty().addListener((observable, oldValue, newValue) -> {
+                if (!oldValue.equals(newValue)){
+                    showHistogram(root , bandChoice.getSelectionModel().getSelectedIndex() , X , bandChoice);
+                }
+            });
 
-            //Defining the X axis
-            NumberAxis xAxis = new NumberAxis(0, 255, 15);
-            xAxis.setLabel("Color");
-
-            //defining the y Axis
-            NumberAxis yAxis = new NumberAxis(0, Arrays.stream(histogram).max().getAsDouble() + 2, 10);
-            yAxis.setLabel("Value");
-
-            //Creating the Area chart
-            AreaChart<String, Number> areaChart = new AreaChart(xAxis, yAxis);
-            areaChart.setTitle("Histogram");
-
-            //Prepare XYChart.Series objects by setting data
-            XYChart.Series series1 = new XYChart.Series();
-
-            for (int i = 0 ; i < histogram.length ; i++) {
-                series1.getData().add(new XYChart.Data(i , histogram[i]));
-            }
-
-            //Setting the XYChart.Series objects to area chart
-            areaChart.getData().addAll(series1);
-
-            if (histogramGroup != null){
-                root.getChildren().remove(histogramGroup);
-            }
-            histogramGroup = new Group(areaChart);
-            histogramGroup.setLayoutX(X_X + MAX_WIDTH + 100);
-            histogramGroup.setLayoutY(Y_Y);
-            root.getChildren().add(histogramGroup);
         }
 
+    }
+
+    private void showHistogram(BorderPane root , int component , formats.Image X , ChoiceBox bandChoice){
+        double[] histogram = X.histogram(component);
+
+        //Defining the X axis
+        NumberAxis xAxis = new NumberAxis(0, 255, 15);
+        xAxis.setLabel("Color");
+
+        //defining the y Axis
+        NumberAxis yAxis = new NumberAxis(0, Arrays.stream(histogram).max().getAsDouble() + 4, 10);
+        yAxis.setLabel("Value");
+
+        //Creating the Area chart
+        AreaChart<String, Number> areaChart = new AreaChart(xAxis, yAxis);
+        areaChart.setMinHeight(MAX_HEIGHT);
+        areaChart.setMinWidth(1.5*MAX_WIDTH);
+
+        //Prepare XYChart.Series objects by setting data
+        XYChart.Series series1 = new XYChart.Series();
+        series1.setName("Histogram");
+        for (int i = 0 ; i < histogram.length ; i++) {
+            series1.getData().add(new XYChart.Data(i , histogram[i]));
+        }
+
+        //Setting the XYChart.Series objects to area chart
+        areaChart.getData().addAll(series1);
+
+        if (histogramGroup != null){
+            root.getChildren().remove(histogramGroup);
+        }
+
+
+        histogramGroup = new Group(areaChart);
+        if (bandChoice != null){
+            histogramGroup.getChildren().add(bandChoice);
+        }
+        histogramGroup.setLayoutX(X_X + MAX_WIDTH + 100);
+        histogramGroup.setLayoutY(Y_Y);
+        root.getChildren().add(histogramGroup);
     }
 
     private void renderY(Stage stage, BorderPane root){
@@ -955,6 +978,70 @@ public class Main extends Application {
                     throw new Exception();
 
                 formats.Image image = stack.pop().thresholding(mu);
+
+                pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid threshold value, try again");
+            }
+            newWindow.close();
+        });
+    }
+
+
+    private void gammaPower(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text centerLabel = new Text("Value");
+        Text gammaLabel = new Text("        gamma");
+
+        TextField gammaField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(centerLabel, 0, 0);
+        gridPane.add(gammaLabel, 0, 1);
+        gridPane.add(gammaField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        centerLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gammaLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Gamma Correction settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double g = Double.valueOf(gammaField.getText());
+
+
+                formats.Image image = stack.pop().gammaCorrection(g);
 
                 pushAndRender(image, stage, root);
 

@@ -282,6 +282,69 @@ public class Image implements Cloneable{
         return ans;
     }
 
+
+    public Image gammaCorrection(double g){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.gammaCorrection(i, g);
+        return ans;
+    }
+
+
+    public Image gammaCorrection(int component, double g){
+        checkConstraints(component, Encoding.HSV);
+
+        double max = Double.MIN_VALUE;
+        double min = Double.MAX_VALUE;
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                        double val = (Math.pow(M,1-g) * Math.pow(getComponent(i, j, component) * M,g))/255;
+                        min = Math.min(min, val);
+                        max = Math.max(max, val);
+                        setComponentNoRound(i, j, component, val);
+            }
+        }
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++) {
+                    double val = getComponent(i, j, component);
+                    val = (val - min) / (max - min);
+                    setComponent(i, j, component, val);
+            }
+        }
+
+        return this;
+
+    }
+
+
+    //TODO: preguntar cual es
+   /* public Image gammaCorrection(int component, double g){
+        checkConstraints(component, Encoding.HSV);
+
+        double max = Double.MIN_VALUE;
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                double val = (Math.pow(M,1-g) * Math.pow(getComponent(i, j, component) * M,g))/255;
+                max = Math.max(max, val);
+                setComponentNoRound(i, j, component, val);
+            }
+        }
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++) {
+                setComponent(i, j, component, dynamicRangeCompression(getComponent(i, j, component)  ,max));
+            }
+        }
+
+        return this;
+
+    }*/
+
+
+
     public double[] equalizedHistogram(int component){
         checkConstraints(component, Encoding.HSV);
         double[] histogram = histogram(component);
