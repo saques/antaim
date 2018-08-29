@@ -175,6 +175,33 @@ public class Image implements Cloneable{
         return byteToDouble((byte)(M - doubleToByte(r)));
     }
 
+    public Image dynamicRangeCompression(int component){
+        checkConstraints(component, Encoding.HSV);
+
+        double max = Double.MIN_VALUE;
+
+        for(int i = 0; i < width; i++)
+            for(int j = 0; j < height; j++)
+                max = Math.max(max, getComponent(i, j, component));
+
+        for(int i = 0; i < width; i++)
+            for(int j = 0; j < height; j++)
+                setComponent(i, j, component, dynamicRangeCompression(getComponent(i, j, component), max));
+
+        return this;
+    }
+
+    public Image dynamicRangeCompression(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+
+        for(int c = 0; c < encoding.getBands(); c++)
+            ans.dynamicRangeCompression(c);
+
+        return ans;
+    }
+
     public static void applyAndAdjust(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f,
                                       TriFunction<Double, Double, Double, Double> adjust){
 

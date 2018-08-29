@@ -163,6 +163,8 @@ public class Main extends Application {
 
         //Unary
         Menu unaryOps = new Menu("Unary");
+        MenuItem scalarProduct = new MenuItem("Scalar product");
+        scalarProduct.setOnAction(x-> scalarProduct(stage, root));
         MenuItem negative = new MenuItem("Negative");
         negative.setOnAction(x-> {
             if(stack.isEmpty()){
@@ -201,9 +203,18 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.toGS(), stage, root);
         });
-        MenuItem gammaCorrection = new MenuItem("Gamma Correction");
+        MenuItem gammaCorrection = new MenuItem("Gamma correction");
         gammaCorrection.setOnAction(x-> gammaPower(stage, root));
-        unaryOps.getItems().addAll(negative, automaticContrast, equalization, greyscale, threshold,gammaCorrection);
+        MenuItem dynamicRangeCompression = new MenuItem("Dynamic range compression");
+        dynamicRangeCompression.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.dynamicRangeCompression(), stage, root);
+        });
+        unaryOps.getItems().addAll(scalarProduct, negative, automaticContrast, equalization, greyscale, threshold,gammaCorrection, dynamicRangeCompression);
 
 
         //Binary
@@ -916,6 +927,68 @@ public class Main extends Application {
 
             } catch (Exception e) {
                 showErrorModal(stage,"Invalid grid size, try again");
+            }
+            newWindow.close();
+        });
+    }
+
+    private void scalarProduct(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text centerLabel = new Text("Scalar");
+        Text NLabel = new Text("         N");
+
+        TextField NField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(centerLabel, 0, 0);
+        gridPane.add(NLabel, 0, 1);
+        gridPane.add(NField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        centerLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        NLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Scalar product");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double N = Double.valueOf(NField.getText());
+
+                formats.Image image = stack.pop().scalarProduct(N);
+
+                pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"An error occurred");
             }
             newWindow.close();
         });
