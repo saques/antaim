@@ -810,13 +810,16 @@ public class Image implements Cloneable{
             for(int j = 0; j < height; j++){
                 for(int c = 0; c < encoding.getBands(); c++){
                     aux = 0.0;
+                    int q = 0;
                     for(int x = i - d; x <= i + d; x ++){
                         for(int y = j - d; y <= j + d; y++){
-                            if(!ans.isOutOfBounds(x, y))
-                                aux +=  getComponent(x,y,c);
+                            if(!ans.isOutOfBounds(x, y)) {
+                                q++;
+                                aux += getComponent(x, y, c);
+                            }
                         }
                     }
-                    aux /= Math.pow(n,2);
+                    aux /= q;
                     ans.setComponent(i, j, c, aux);
                 }
             }
@@ -860,7 +863,7 @@ public class Image implements Cloneable{
                         }
                     }
                     aux /= accum;
-                    ans.setComponent(i, j, c, aux );
+                    ans.setComponent(i, j, c, aux);
                 }
             }
         }
