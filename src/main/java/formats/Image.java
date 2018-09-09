@@ -720,13 +720,31 @@ public class Image implements Cloneable{
         return ans;
     }
 
-    private Image convolution(double[][] mask, boolean round, double divisor){
+
+    private class ImageMaxMin {
+        Image image;
+        double[] max;
+        double[] min;
+        ImageMaxMin(Image image, double max[], double min[]){
+            this.image = image;
+            this.max = max;
+            this.min = min;
+        }
+    }
+
+
+    private ImageMaxMin convolution(double[][] mask, boolean round, double divisor){
         if (mask.length % 2 == 0 || mask[0].length != mask.length || encoding.equals(Encoding.HSV)) {
             throw new IllegalArgumentException();
         }
 
         Image ans = clone();
         int d = mask.length / 2;
+        double[] max = new double[encoding.getBands()], min = new double[encoding.getBands()];
+        for (int i = 0; i < encoding.getBands(); i++){
+            max[i] = Double.MIN_VALUE;
+            min[i] = Double.MAX_VALUE;
+        }
 
         for(int i = 0; i < width; i++){
             for(int j = 0; j < height; j++){
@@ -737,18 +755,21 @@ public class Image implements Cloneable{
                             accum += mask[x - i + d][y - j + d]*getComponent(Math.floorMod(x, width), Math.floorMod(y, height), c);
                         }
                     }
+                    accum /= divisor;
+                    max[c] = Math.max(max[c], accum);
+                    min[c] = Math.min(min[c], accum);
                     if(round)
-                        ans.setComponent(i, j, c, accum/divisor);
+                        ans.setComponent(i, j, c, accum);
                     else
-                        ans.setComponentNoRound(i, j, c, accum/divisor);
+                        ans.setComponentNoRound(i, j, c, accum);
                 }
             }
         }
-        return ans;
+        return new ImageMaxMin(ans, max, min);
     }
 
 
-    public Image medianMask(int[][] MASK){
+    private Image medianMask(int[][] MASK){
         if((MASK.length % 2) == 0 || MASK[0].length != MASK.length|| encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
@@ -806,7 +827,7 @@ public class Image implements Cloneable{
                            {-1.0,  8.0, -1.0},
                            {-1.0, -1.0, -1.0}};
 
-        return convolution(MASK, true, 9.0);
+        return convolution(MASK, true, 9.0).image;
     }
 
 
@@ -819,7 +840,7 @@ public class Image implements Cloneable{
             for(int j = 0; j < n; j++)
                 MASK[i][j] = 1.0;
 
-        return convolution(MASK, true, (double)(n*n));
+        return convolution(MASK, true, (double)(n*n)).image;
 
     }
 
@@ -838,7 +859,7 @@ public class Image implements Cloneable{
             }
         }
 
-        return convolution(MASK, true, divisor);
+        return convolution(MASK, true, divisor).image;
 
     }
 
