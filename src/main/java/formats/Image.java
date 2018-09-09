@@ -720,13 +720,40 @@ public class Image implements Cloneable{
         return ans;
     }
 
+    private Image convolution(double[][] mask, boolean round, double divisor){
+        if (mask.length % 2 == 0 || mask[0].length != mask.length || encoding.equals(Encoding.HSV)) {
+            throw new IllegalArgumentException();
+        }
 
-    public Image medianFilter(int n){
-        if((n % 2) == 0 || encoding.equals(Encoding.HSV))
+        Image ans = clone();
+        int d = mask.length / 2;
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    double accum = 0;
+                    for(int x = i - d; x <= i + d; x ++){
+                        for(int y = j - d; y <= j + d; y++){
+                            accum += mask[x - i + d][y - j + d]*getComponent(Math.floorMod(x, width), Math.floorMod(y, height), c);
+                        }
+                    }
+                    if(round)
+                        ans.setComponent(i, j, c, accum/divisor);
+                    else
+                        ans.setComponentNoRound(i, j, c, accum/divisor);
+                }
+            }
+        }
+        return ans;
+    }
+
+
+    public Image medianMask(int[][] MASK){
+        if((MASK.length % 2) == 0 || MASK[0].length != MASK.length|| encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
         Image ans = clone();
-        int d = n/2;
+        int d = MASK.length/2;
 
         for(int i = 0; i < width; i++){
             for(int j = 0; j < height; j++){
@@ -735,32 +762,7 @@ public class Image implements Cloneable{
                     for(int x = i - d; x <= i + d; x ++){
                         for(int y = j - d; y <= j + d; y++){
                             if(!isOutOfBounds(x, y))
-                                list.add(getComponent(x, y, c));
-                        }
-                    }
-                    ans.setComponent(i, j, c, MathUtils.median(list));
-                }
-            }
-        }
-        return ans;
-    }
-
-    private static final double[][] WEIGHTED_MEDIAN_MATRIX = {{1, 2, 1}, {2, 4, 2}, {1, 2, 1}};
-
-    public Image weightedMedianFilter(){
-        if(encoding.equals(Encoding.HSV))
-            throw new IllegalArgumentException();
-
-        Image ans = clone();
-
-        for(int i = 0; i < width; i++){
-            for(int j = 0; j < height; j++){
-                for(int c = 0; c < encoding.getBands(); c++){
-                    List<Double> list = new LinkedList<>();
-                    for(int x = i - 1; x <= i + 1; x ++){
-                        for(int y = j - 1; y <= j + 1; y++){
-                            if(!isOutOfBounds(x, y))
-                                for (int t = 0; t < WEIGHTED_MEDIAN_MATRIX[x + 1 - i][y + 1 - j]; t++)
+                                for (int t = 0; t < MASK[x + 1 - i][y + 1 - j]; t++)
                                     list.add(getComponent(x, y, c));
                         }
                     }
@@ -768,33 +770,43 @@ public class Image implements Cloneable{
                 }
             }
         }
+
         return ans;
     }
 
-    private static final double[][] CONTOUR_ENHANCEMENT = {{-1, -1, -1}, {-1, 8, -1}, {-1, -1, -1}};
 
+    public Image medianFilter(int n){
+        if((n % 2) == 0 || encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        int[][] MASK = new int[n][n];
+        for(int i = 0; i < n; i++)
+            for(int j = 0; j < n; j++)
+                MASK[i][j] = 1;
+
+        return medianMask(MASK);
+    }
+
+    public Image weightedMedianFilter(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        int[][] WEIGHTED_MEDIAN_MATRIX = {{1, 2, 1},
+                                          {2, 4, 2},
+                                          {1, 2, 1}};
+
+        return medianMask(WEIGHTED_MEDIAN_MATRIX);
+    }
 
     public Image contourEnhancement(){
         if(encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
-        Image ans = clone();
+        double[][] MASK = {{-1.0, -1.0, -1.0},
+                           {-1.0,  8.0, -1.0},
+                           {-1.0, -1.0, -1.0}};
 
-        for(int i = 0; i < width; i++){
-            for(int j = 0; j < height; j++){
-                for(int c = 0; c < encoding.getBands(); c++){
-                    double acum = 0;
-                    for(int x = i - 1; x <= i + 1; x ++){
-                        for(int y = j - 1; y <= j + 1; y++){
-                            double val = isOutOfBounds(x, y) ? 1 : getComponent(x, y, c);
-                            acum += (1.0/9.0)*val*CONTOUR_ENHANCEMENT[x + 1 - i][y + 1 - j];
-                        }
-                        ans.setComponent(i, j, c, acum);
-                    }
-                }
-            }
-        }
-        return ans;
+        return convolution(MASK, true, 9.0);
     }
 
 
@@ -802,77 +814,33 @@ public class Image implements Cloneable{
         if((n % 2) == 0 || encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
-        Image ans = clone();
-        int d = n/2;
-        double aux;
+        double[][] MASK = new double[n][n];
+        for(int i = 0; i < n; i++)
+            for(int j = 0; j < n; j++)
+                MASK[i][j] = 1.0;
 
-        for(int i = 0; i < width; i++){
-            for(int j = 0; j < height; j++){
-                for(int c = 0; c < encoding.getBands(); c++){
-                    aux = 0.0;
-                    int q = 0;
-                    for(int x = i - d; x <= i + d; x ++){
-                        for(int y = j - d; y <= j + d; y++){
-                            if(!ans.isOutOfBounds(x, y)) {
-                                q++;
-                                aux += getComponent(x, y, c);
-                            }
-                        }
-                    }
-                    aux /= q;
-                    ans.setComponent(i, j, c, aux);
-                }
-            }
-        }
-
-        return ans;
+        return convolution(MASK, true, (double)(n*n));
 
     }
-
-
 
     public Image gaussFilter(int n , double sigma){
         if((n % 2) == 0 || encoding.equals(Encoding.HSV) || sigma < 0)
             throw new IllegalArgumentException();
 
-        Image ans = clone();
         int d = n/2;
-        double aux;
         BiFunction <Integer, Integer ,Double > gauss = ( x , y ) -> ( 1 / (2 * Math.PI * Math.pow(sigma,2))) * Math.exp( (- (Math.pow(x,2) + Math.pow(y,2)) ) / ( 2 * Math.pow(sigma,2)) );
-        double [][] mask = new double [n][n];
+        double [][] MASK = new double [n][n];
+        double divisor = 0;
         for ( int j = 0  ; j < n ; j++){
             for (int k = 0 ; k < n ; k++ ){
-                mask[j][k] = gauss.apply(j - d, k - d);
+                MASK[j][k] = gauss.apply(j - d, k - d);
+                divisor += MASK[j][k];
             }
         }
 
-        double accum;
-        for(int i = 0; i < width; i++){
-            for(int j = 0; j < height; j++){
-                for(int c = 0; c < encoding.getBands(); c++){
-                    aux = 0.0;
-                    accum = 0.0;
-                    for(int x = i - d; x <= i + d; x ++){
-                        for(int y = j - d; y <= j + d; y++){
-                            if(!isOutOfBounds(x, y)){
-                                aux +=  mask[x - i + d][y - j + d] * getComponent(x,y,c);
-                                accum += mask[x - i + d][y - j + d];
-                            }
-                        }
-                    }
-                    aux /= accum;
-                    ans.setComponent(i, j, c, aux);
-                }
-            }
-        }
-
-        return ans;
+        return convolution(MASK, true, divisor);
 
     }
-
-
-
-
 
     public Image copy(int x1, int y1, int x2, int y2){
         if(isOutOfBounds(x1, y1) || isOutOfBounds(x2, y2))
