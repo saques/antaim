@@ -9,6 +9,7 @@ import noise.NoiseGenerator;
 import utils.MathUtils;
 
 import javax.imageio.ImageIO;
+import javax.xml.crypto.dom.DOMCryptoContext;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +29,8 @@ public class Image implements Cloneable{
     public static final double MAX_D = 1.0;
     public static final int M = 0xFF;
     public static final double U = 1.0/M;
+
+    private static final TriFunction<Double, Double, Double, Double> linearAdjust = (c, min, max) -> (c - min)/(max-min);
 
 
     double[] data;
@@ -221,13 +224,24 @@ public class Image implements Cloneable{
         }
 
         for(int i = 0; i < i1.width; i++) {
-            for (int j = 0; j < i2.height; j++) {
+            for (int j = 0; j < i1.height; j++) {
                 for(int c = 0; c < i1.encoding.getBands(); c++){
                     ans.setComponent(i, j, c, adjust.apply(ans.getComponent(i, j, c), min[c], max[c]));
                 }
             }
         }
 
+    }
+
+    private Image adjust(TriFunction<Double, Double, Double, Double> adjust, double[] max, double[] min){
+        for(int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                for(int c = 0; c < encoding.getBands(); c++){
+                    setComponent(i, j, c, adjust.apply(getComponent(i, j, c), min[c], max[c]));
+                }
+            }
+        }
+        return this;
     }
 
     public boolean isBinaryOperandCompatible(Image o){
@@ -241,7 +255,7 @@ public class Image implements Cloneable{
             throw new IllegalArgumentException();
         Image ans = clone();
 
-        applyAndAdjust(this, image, ans, (x, y) -> x+y, (c, min, max) -> (c - min)/(max-min));
+        applyAndAdjust(this, image, ans, (x, y) -> x+y, linearAdjust);
 
         return ans;
     }
@@ -251,7 +265,7 @@ public class Image implements Cloneable{
             throw new IllegalArgumentException();
         Image ans = clone();
 
-        applyAndAdjust(this, image, ans, (x, y) -> x-y, (c, min, max) -> (c - min)/(max-min));
+        applyAndAdjust(this, image, ans, (x, y) -> x-y, linearAdjust);
 
         return ans;
     }
@@ -286,6 +300,49 @@ public class Image implements Cloneable{
     public static double thresholding(double r, double u){
         return r <= u ? 0 : 1 ;
     }
+
+
+    private double automaticThreshold(int component) {
+        checkConstraints(component, Encoding.HSV);
+        double t = round(0.5);
+
+        boolean exit = false;
+        while(!exit) {
+            exit = true;
+            double m1 = 0, m2 = 0;
+            int p1 = 0, p2 = 0;
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    double pixel = getComponent(x, y, component);
+                    if(pixel < t){
+                        m1 += pixel;
+                        p1++;
+                    } else {
+                        m2 += pixel;
+                        p2 ++;
+                    }
+                }
+            }
+            m1 /= p1;
+            m2 /= p2;
+            double nT = (m1+m2)/2;
+            if(Math.abs(t-nT) > U)
+                exit = false;
+            t = nT;
+        }
+
+        return t;
+    }
+
+    public Image automaticThresholding(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.thresholding(i, automaticThreshold(i));
+        return ans;
+    }
+
 
     public Image scalarProduct(int component, double num){
         checkConstraints(component, Encoding.HSV);
@@ -345,32 +402,6 @@ public class Image implements Cloneable{
         return this;
 
     }
-
-
-    //TODO: preguntar cual es
-   /* public Image gammaCorrection(int component, double g){
-        checkConstraints(component, Encoding.HSV);
-
-        double max = Double.MIN_VALUE;
-        for(int i = 0; i < width; i++){
-            for(int j = 0; j < height; j++){
-                double val = (Math.pow(M,1-g) * Math.pow(getComponent(i, j, component) * M,g))/255;
-                max = Math.max(max, val);
-                setComponentNoRound(i, j, component, val);
-            }
-        }
-
-        for(int i = 0; i < width; i++){
-            for(int j = 0; j < height; j++) {
-                setComponent(i, j, component, dynamicRangeCompression(getComponent(i, j, component)  ,max));
-            }
-        }
-
-        return this;
-
-    }*/
-
-
 
     public double[] equalizedHistogram(int component){
         checkConstraints(component, Encoding.HSV);
@@ -861,6 +892,64 @@ public class Image implements Cloneable{
 
         return convolution(MASK, true, divisor).image;
 
+    }
+
+    private Image firstDerivativeContourEnhancement(double[][] MASK_DX, double[][] MASK_DY){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        ImageMaxMin dx = convolution(MASK_DX, false, 1);
+        dx.image.adjust(linearAdjust, dx.max, dx.min);
+        ImageMaxMin dy = convolution(MASK_DY, false, 1);
+        dy.image.adjust(linearAdjust, dy.max, dy.min);
+
+        Image ans = new Image(width, height, encoding, true);
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++) {
+
+                    double max = Math.max(dx.image.getComponent(i, j, c), dy.image.getComponent(i, j, c));
+
+                    ans.setComponent(i, j, c, max);
+
+                }
+            }
+        }
+
+        return ans;
+    }
+
+    public Image prewitt(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        double[][] MASK_DX = {{-1.0, 0.0, 1.0},
+                              {-1.0, 0.0, 1.0},
+                              {-1.0, 0.0, 1.0}};
+
+        double[][] MASK_DY = {{-1.0, -1.0, -1.0},
+                              { 0.0,  0.0,  0.0},
+                              { 1.0,  1.0,  1.0}};
+
+
+        return firstDerivativeContourEnhancement(MASK_DX, MASK_DY);
+    }
+
+    public Image sobel(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        double[][] MASK_DX = {{-1.0, 0.0, 1.0},
+                              {-2.0, 0.0, 2.0},
+                              {-1.0, 0.0, 1.0}};
+
+        double[][] MASK_DY = {{-1.0, -2.0, -1.0},
+                              { 0.0,  0.0,  0.0},
+                              { 1.0,  2.0,  1.0}};
+
+
+        return firstDerivativeContourEnhancement(MASK_DX, MASK_DY);
     }
 
     public Image copy(int x1, int y1, int x2, int y2){

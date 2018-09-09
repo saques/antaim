@@ -13,13 +13,23 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        weightedMedianFilter();
+        sobel();
 
     }
 
     /**
      * Try me
      */
+
+    public static void prewitt() throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        ImageIO.write(img.prewitt().toGS().negative().automaticThresholding().toBufferedImage(), "bmp", new File("images\\prewittLena.BMP"));
+    }
+
+    public static void sobel() throws IOException{
+        Image img = new Image("images\\lena.jpg");
+        ImageIO.write(img.sobel().toGS().negative().automaticThresholding().toBufferedImage(), "bmp", new File("images\\sobelLena.BMP"));
+    }
 
     public static void weightedMedianFilter() throws IOException{
         Image img = new Image("images\\lena.jpg");
