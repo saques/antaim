@@ -13,7 +13,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        sobel("images\\engine.png");
+        loGFilter("images\\girl.png");
 
     }
 
@@ -29,6 +29,16 @@ public final class PlayGround {
     public static void sobel(String file) throws IOException{
         Image img = new Image(file);
         ImageIO.write(img.toGS().sobel().toBufferedImage(), "bmp", new File("images\\sobel.BMP"));
+    }
+
+    public static void laplace(String file) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.toGS().laplace().toBufferedImage(), "bmp", new File("images\\laplace.BMP"));
+    }
+
+    public static void loGFilter(String file) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.toGS().loGFilter(7,1,0.00005).toBufferedImage(), "bmp", new File("images\\loGFilter.BMP"));
     }
 
     public static void weightedMedianFilter() throws IOException{

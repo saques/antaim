@@ -981,6 +981,118 @@ public class Image implements Cloneable{
         return firstDerivativeContourEnhancement(MASK_DX, MASK_DY);
     }
 
+
+    public Image loGFilter(int n, int sigma, double threshold){
+        if((n % 2) == 0 || encoding.equals(Encoding.HSV) || sigma < 0 || threshold < 0)
+            throw new IllegalArgumentException();
+
+        int d = n/2;
+        BiFunction <Integer, Integer ,Double > loG = ( x , y ) -> (-1.0 / ((Math.sqrt(2.0 * Math.PI) * Math.pow(sigma,3)))  ) * ( 2 - ( (Math.pow(x,2)+ Math.pow(y,2) )  / Math.pow(sigma,2) ) ) * Math.exp( (-1.0/2.0) * ( (Math.pow(x,2)+ Math.pow(y,2) )  / Math.pow(sigma,2) ) ) ;
+        double [][] MASK = new double [n][n];
+        double divisor = 0;
+        for ( int j = 0  ; j < n ; j++){
+            for (int k = 0 ; k < n ; k++ ){
+                MASK[j][k] = loG.apply(j - d, k - d);
+                //divisor += MASK[j][k];
+            }
+        }
+
+        return convolution(new ConvolutionParameters(MASK, false, 1)).get(0).image.zeroCrossing(threshold);
+
+    }
+
+
+    public Image laplace(){
+        if( encoding.equals(Encoding.HSV) )
+            throw new IllegalArgumentException();
+
+        double[][] LAPLACE_MASK = {{0.0, -1.0, 0.0},
+                            {-1.0, 4.0, -1.0},
+                                {0.0, -1.0, 0.0}};
+
+        return convolution(new ConvolutionParameters(LAPLACE_MASK, false, 1.0)).get(0).image.zeroCrossing();
+
+    }
+
+
+    private Image zeroCrossing(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+        for(int c = 0; c < encoding.getBands(); c++){
+            for ( int x = 0  ; x < width ; x++){
+                for (int  y= 0 ; y < height ; y++ ){
+                    ans.setComponent(x,y,c,hasChangedSign(x,y,c));
+                }
+            }
+        }
+        return ans;
+    }
+
+    private Image zeroCrossing(double threshold){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+        for(int c = 0; c < encoding.getBands(); c++){
+            for ( int x = 0  ; x < width ; x++){
+                for (int  y= 0 ; y < height ; y++ ){
+                    ans.setComponent(x,y,c,hasChangedSign(x,y,c,threshold));
+                }
+            }
+        }
+        return ans;
+    }
+
+    private double hasChangedSign(int x, int y, int component) {
+        if (getComponent(x,y,component) == 0){
+            if (!isOutOfBounds(x-1,y) && !isOutOfBounds(x+1,y)){
+                return getComponent(x-1,y,component) * getComponent(x+1,y,component) < 0.0 ? 0.0 : MAX_D;
+            }
+            if (!isOutOfBounds(x,y-1) && !isOutOfBounds(x,y+1)){
+                return getComponent(x,y-1,component) * getComponent(x,y+1,component) < 0.0 ? 0.0 : MAX_D;
+            }
+            return MAX_D;
+        } else{
+            if (!isOutOfBounds(x+1,y)){
+                return getComponent(x,y,component) * getComponent(x+1,y,component) < 0.0 ? 0.0 : MAX_D;
+            }
+            if (!isOutOfBounds(x,y+1)){
+                return getComponent(x,y,component) * getComponent(x,y+1,component) < 0.0 ? 0.0 : MAX_D;
+            }
+            return MAX_D;
+
+        }
+
+    }
+
+    private double hasChangedSign(int x, int y, int component,double threshold) {
+        if (getComponent(x,y,component) == 0){
+            if (!isOutOfBounds(x-1,y) && !isOutOfBounds(x+1,y)){
+                return getComponent(x-1,y,component) * getComponent(x+1,y,component) < 0.0 ? moreThanThreshold(getComponent(x-1,y,component) , getComponent(x+1,y,component), threshold) : MAX_D;
+            }
+            if (!isOutOfBounds(x,y-1) && !isOutOfBounds(x,y+1)){
+                return getComponent(x,y-1,component) * getComponent(x,y+1,component) < 0.0 ? moreThanThreshold(getComponent(x,y-1,component) , getComponent(x,y+1,component), threshold ): MAX_D;
+            }
+            return MAX_D;
+        } else{
+            if (!isOutOfBounds(x+1,y)){
+                return getComponent(x,y,component) * getComponent(x+1,y,component) < 0.0 ? moreThanThreshold(getComponent(x,y,component) , getComponent(x+1,y,component), threshold ): MAX_D;
+            }
+            if (!isOutOfBounds(x,y+1)){
+                return getComponent(x,y,component) * getComponent(x,y+1,component) < 0.0 ? moreThanThreshold(getComponent(x,y,component) , getComponent(x,y+1,component), threshold) : MAX_D;
+            }
+            return MAX_D;
+
+        }
+
+    }
+
+    private double moreThanThreshold(double component, double component1, double threshold) {
+        return (Math.abs(component) + Math.abs(component1)) > threshold ?  0.0 : MAX_D;
+    }
+
     public Image copy(int x1, int y1, int x2, int y2){
         if(isOutOfBounds(x1, y1) || isOutOfBounds(x2, y2))
             throw new IndexOutOfBoundsException();
