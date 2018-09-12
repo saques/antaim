@@ -9,10 +9,10 @@ import noise.NoiseGenerator;
 import utils.MathUtils;
 
 import javax.imageio.ImageIO;
-import javax.xml.crypto.dom.DOMCryptoContext;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -302,9 +302,25 @@ public class Image implements Cloneable{
     }
 
 
+    public double[] maxAndMin(int component){
+        checkConstraints(component, Encoding.HSV);
+        double max = Double.MIN_VALUE, min = Double.MAX_VALUE;
+
+        for(int i = 0; i < width; i++)
+            for(int j = 0; j < height; j++){
+                max = Math.max(max, getComponent(i, j, component));
+                min = Math.min(min, getComponent(i, j, component));
+            }
+
+        return new double[]{max, min};
+    }
+
+
     private double automaticThreshold(int component) {
         checkConstraints(component, Encoding.HSV);
-        double t = round(0.5);
+
+        double[] maxMin = maxAndMin(component);
+        double t = round((maxMin[0]+maxMin[1])/2);
 
         boolean exit = false;
         while(!exit) {
@@ -763,40 +779,61 @@ public class Image implements Cloneable{
         }
     }
 
+    private class ConvolutionParameters {
+        double[][] mask;
+        boolean round;
+        double divisor;
+        public ConvolutionParameters(double[][] mask, boolean round, double divisor){
+            this.mask = mask;
+            this.round = round;
+            this.divisor = divisor;
+        }
+    }
 
-    private ImageMaxMin convolution(double[][] mask, boolean round, double divisor){
-        if (mask.length % 2 == 0 || mask[0].length != mask.length || encoding.equals(Encoding.HSV)) {
+
+    private List<ImageMaxMin> convolution(ConvolutionParameters... params){
+        if (encoding.equals(Encoding.HSV)) {
             throw new IllegalArgumentException();
         }
 
-        Image ans = clone();
-        int d = mask.length / 2;
-        double[] max = new double[encoding.getBands()], min = new double[encoding.getBands()];
-        for (int i = 0; i < encoding.getBands(); i++){
-            max[i] = Double.MIN_VALUE;
-            min[i] = Double.MAX_VALUE;
+        List<ImageMaxMin> ans = new ArrayList<>(params.length);
+
+        for(int i = 0; i < params.length; i++){
+            double[] max = new double[encoding.getBands()], min = new double[encoding.getBands()];
+            for (int c = 0; c < encoding.getBands(); c++){
+                max[c] = Double.MIN_VALUE;
+                min[c] = Double.MAX_VALUE;
+            }
+            ans.add(new ImageMaxMin(clone(), max, min));
         }
 
         for(int i = 0; i < width; i++){
             for(int j = 0; j < height; j++){
                 for(int c = 0; c < encoding.getBands(); c++){
-                    double accum = 0;
-                    for(int x = i - d; x <= i + d; x ++){
-                        for(int y = j - d; y <= j + d; y++){
-                            accum += mask[x - i + d][y - j + d]*getComponent(Math.floorMod(x, width), Math.floorMod(y, height), c);
+                    for(int op = 0; op < params.length; op++) {
+
+                        ConvolutionParameters param = params[op];
+                        ImageMaxMin im = ans.get(op);
+                        int d = param.mask.length/2;
+
+                        double accum = 0;
+                        for (int x = i - d; x <= i + d; x++) {
+                            for (int y = j - d; y <= j + d; y++) {
+                                accum += param.mask[x - i + d][y - j + d] * getComponent(Math.floorMod(x, width), Math.floorMod(y, height), c);
+                            }
                         }
+                        accum /= param.divisor;
+                        im.max[c] = Math.max(im.max[c], accum);
+                        im.min[c] = Math.min(im.min[c], accum);
+                        if (param.round)
+                            im.image.setComponent(i, j, c, accum);
+                        else
+                            im.image.setComponentNoRound(i, j, c, accum);
                     }
-                    accum /= divisor;
-                    max[c] = Math.max(max[c], accum);
-                    min[c] = Math.min(min[c], accum);
-                    if(round)
-                        ans.setComponent(i, j, c, accum);
-                    else
-                        ans.setComponentNoRound(i, j, c, accum);
                 }
             }
         }
-        return new ImageMaxMin(ans, max, min);
+        return ans;
     }
 
 
@@ -858,7 +895,7 @@ public class Image implements Cloneable{
                            {-1.0,  8.0, -1.0},
                            {-1.0, -1.0, -1.0}};
 
-        return convolution(MASK, true, 9.0).image;
+        return convolution(new ConvolutionParameters(MASK, true, 9.0)).get(0).image;
     }
 
 
@@ -871,7 +908,7 @@ public class Image implements Cloneable{
             for(int j = 0; j < n; j++)
                 MASK[i][j] = 1.0;
 
-        return convolution(MASK, true, (double)(n*n)).image;
+        return convolution(new ConvolutionParameters(MASK, true, (double)(n*n))).get(0).image;
 
     }
 
@@ -890,7 +927,7 @@ public class Image implements Cloneable{
             }
         }
 
-        return convolution(MASK, true, divisor).image;
+        return convolution(new ConvolutionParameters(MASK, true, divisor)).get(0).image;
 
     }
 
@@ -898,24 +935,16 @@ public class Image implements Cloneable{
         if(encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
-        ImageMaxMin dx = convolution(MASK_DX, false, 1);
-        dx.image.adjust(linearAdjust, dx.max, dx.min);
-        ImageMaxMin dy = convolution(MASK_DY, false, 1);
-        dy.image.adjust(linearAdjust, dy.max, dy.min);
+        List<ImageMaxMin> convoluted = convolution(new ConvolutionParameters(MASK_DX, false, 1),
+                                                   new ConvolutionParameters(MASK_DY, false, 1));
+
+        ImageMaxMin dx = convoluted.get(0);
+        ImageMaxMin dy = convoluted.get(1);
 
         Image ans = new Image(width, height, encoding, true);
 
-        for(int i = 0; i < width; i++){
-            for(int j = 0; j < height; j++){
-                for(int c = 0; c < encoding.getBands(); c++) {
-
-                    double max = Math.max(dx.image.getComponent(i, j, c), dy.image.getComponent(i, j, c));
-
-                    ans.setComponent(i, j, c, max);
-
-                }
-            }
-        }
+        BiFunction<Double, Double, Double> modulus = (x, y) -> Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+        applyAndAdjust(dx.image, dy.image, ans, modulus, linearAdjust);
 
         return ans;
     }
