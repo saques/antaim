@@ -760,7 +760,8 @@ public class Image implements Cloneable{
                 for(int j = 0; j < height; j++) {
                     for(int c = 0; c < encoding.getBands(); c++) {
                         double val = getComponent(i, j, c);
-                        val = (val - min[c]) / (max[c] - min[c]);
+                        if(val < 0 || val > 1)
+                            val = (val - min[c]) / (max[c] - min[c]);
                         setComponent(i, j, c, val);
                     }
                 }
