@@ -13,7 +13,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        anisotropicDiffusion("images\\bricks.jpg", 100, 5, Image.AnisotropicBorderDetector.LECLERC);
+        bilateralFilter("images\\lena.png");
     }
 
     /**
@@ -44,6 +44,14 @@ public final class PlayGround {
         Image img = new Image(file);
         ImageIO.write(img.toGS().loGFilter(7,1,0.00005).toBufferedImage(), "bmp", new File("images\\loGFilter.BMP"));
     }
+
+    public static void bilateralFilter(String file) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.toGS().bilateralFilter(7,2,30).toBufferedImage(), "png", new File("images\\bilateralFilter.png"));
+        ImageIO.write(img.toGS().bilateralFilter(7,20,30).toBufferedImage(), "png", new File("images\\bilateralFilter2.png"));
+
+    }
+
 
     public static void weightedMedianFilter() throws IOException{
         Image img = new Image("images\\lena.jpg");

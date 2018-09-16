@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class Image implements Cloneable{
 
@@ -1060,7 +1061,7 @@ public class Image implements Cloneable{
             }
         }
 
-        return convolution(new ConvolutionParameters(MASK, false, 1)).get(0).image.zeroCrossing(threshold);
+        return convolution(new ConvolutionParameters(MASK, false, 1)).get(0).image.zeroCrossing(moreThanThreshold(threshold));
 
     }
 
@@ -1073,12 +1074,13 @@ public class Image implements Cloneable{
                             {-1.0, 4.0, -1.0},
                                 {0.0, -1.0, 0.0}};
 
-        return convolution(new ConvolutionParameters(LAPLACE_MASK, false, 1.0)).get(0).image.zeroCrossing();
+        return convolution(new ConvolutionParameters(LAPLACE_MASK, false, 1.0)).get(0).image.zeroCrossing((x,y) -> 0.0);
 
     }
 
 
-    private Image zeroCrossing(){
+
+    private Image zeroCrossing(BiFunction<Double,Double,Double> function){
         if(encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
@@ -1086,75 +1088,96 @@ public class Image implements Cloneable{
         for(int c = 0; c < encoding.getBands(); c++){
             for ( int x = 0  ; x < width ; x++){
                 for (int  y= 0 ; y < height ; y++ ){
-                    ans.setComponent(x,y,c,hasChangedSign(x,y,c));
+                    ans.setComponent(x,y,c,hasChangedSign(x,y,c,function));
                 }
             }
         }
         return ans;
     }
 
-    private Image zeroCrossing(double threshold){
-        if(encoding.equals(Encoding.HSV))
+
+    private double hasChangedSign(int x, int y, int component, BiFunction<Double,Double,Double> function) {
+        if (getComponent(x,y,component) == 0){
+            if (!isOutOfBounds(x-1,y) && !isOutOfBounds(x+1,y)){
+                return getComponent(x-1,y,component) * getComponent(x+1,y,component) < 0.0 ? function.apply(getComponent(x-1,y,component) , getComponent(x+1,y,component)) : MAX_D;
+            }
+            if (!isOutOfBounds(x,y-1) && !isOutOfBounds(x,y+1)){
+                return getComponent(x,y-1,component) * getComponent(x,y+1,component) < 0.0 ? function.apply(getComponent(x,y-1,component) , getComponent(x,y+1,component) ): MAX_D;
+            }
+            return MAX_D;
+        } else{
+            if (!isOutOfBounds(x+1,y)){
+                return getComponent(x,y,component) * getComponent(x+1,y,component) < 0.0 ? function.apply(getComponent(x,y,component) , getComponent(x+1,y,component) ): MAX_D;
+            }
+            if (!isOutOfBounds(x,y+1)){
+                return getComponent(x,y,component) * getComponent(x,y+1,component) < 0.0 ? function.apply(getComponent(x,y,component) , getComponent(x,y+1,component)) : MAX_D;
+            }
+            return MAX_D;
+
+        }
+
+    }
+
+    private BiFunction<Double,Double,Double> moreThanThreshold( double threshold) {
+        return (component,component1) ->(Math.abs(component) + Math.abs(component1)) > threshold ?  0.0 : MAX_D;
+    }
+
+
+    public Image bilateralFilter(int n , double sigmaS, int sigmaR){
+        if((n % 2) == 0 || encoding.equals(Encoding.HSV) || sigmaS < 0 || sigmaR < 0)
             throw new IllegalArgumentException();
 
+        int d = n/2;
+        BiFunction <Integer, Integer ,Function<Double,Double >> bilateral = ( x , y ) -> ( module ) -> ( Math.exp( ((-1) * (Math.pow(x,2) + Math.pow(y,2))) / (2 * sigmaS) - ( module / (2*sigmaR) )  ));
+        ArrayList<ArrayList<Function<Double,Double >>>  MASK = new ArrayList<>();
+
+        for ( int j = 0  ; j < n ; j++){
+            MASK.add(j,new ArrayList<>());
+        }
+        for ( int j = 0  ; j < n ; j++){
+            for (int k = 0 ; k < n ; k++ ){
+                MASK.get(j).add(k,bilateral.apply(j - d, k - d));
+            }
+        }
+
         Image ans = clone();
-        for(int c = 0; c < encoding.getBands(); c++){
-            for ( int x = 0  ; x < width ; x++){
-                for (int  y= 0 ; y < height ; y++ ){
-                    ans.setComponent(x,y,c,hasChangedSign(x,y,c,threshold));
+
+
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                double module[][] = new double[n][n];
+                for (int x = i - d; x <= i + d; x++) {
+                    for (int y = j - d; y <= j + d; y++) {
+                        for(int c = 0; c < encoding.getBands(); c++) {
+                            if(!isOutOfBounds(x,y))
+                                module[x - i + d][y - j + d] += Math.pow((getComponent(i,j,c) - getComponent(x,y,c)) , 2);
+                        }
+                        module[x - i + d][y - j + d] += Math.sqrt(module[x - i + d][y - j + d]);
+                    }
                 }
+                double accum = 0;
+                double aux = 0;
+                double divisor = 0;
+                for(int c = 0; c < encoding.getBands(); c++) {
+                    for (int x = i - d; x <= i + d; x++) {
+                        for (int y = j - d; y <= j + d; y++) {
+                            aux = MASK.get(x - i + d).get(y - j + d).apply(module[x - i + d][y - j + d]);
+                            accum += aux * getComponent(Math.floorMod(x, width), Math.floorMod(y, height), c);
+                            divisor += aux;
+                        }
+                    }
+                    accum /= divisor;
+                    ans.setComponent(i, j, c, accum);
+                }
+
             }
         }
         return ans;
     }
 
-    private double hasChangedSign(int x, int y, int component) {
-        if (getComponent(x,y,component) == 0){
-            if (!isOutOfBounds(x-1,y) && !isOutOfBounds(x+1,y)){
-                return getComponent(x-1,y,component) * getComponent(x+1,y,component) < 0.0 ? 0.0 : MAX_D;
-            }
-            if (!isOutOfBounds(x,y-1) && !isOutOfBounds(x,y+1)){
-                return getComponent(x,y-1,component) * getComponent(x,y+1,component) < 0.0 ? 0.0 : MAX_D;
-            }
-            return MAX_D;
-        } else{
-            if (!isOutOfBounds(x+1,y)){
-                return getComponent(x,y,component) * getComponent(x+1,y,component) < 0.0 ? 0.0 : MAX_D;
-            }
-            if (!isOutOfBounds(x,y+1)){
-                return getComponent(x,y,component) * getComponent(x,y+1,component) < 0.0 ? 0.0 : MAX_D;
-            }
-            return MAX_D;
 
-        }
 
-    }
-
-    private double hasChangedSign(int x, int y, int component,double threshold) {
-        if (getComponent(x,y,component) == 0){
-            if (!isOutOfBounds(x-1,y) && !isOutOfBounds(x+1,y)){
-                return getComponent(x-1,y,component) * getComponent(x+1,y,component) < 0.0 ? moreThanThreshold(getComponent(x-1,y,component) , getComponent(x+1,y,component), threshold) : MAX_D;
-            }
-            if (!isOutOfBounds(x,y-1) && !isOutOfBounds(x,y+1)){
-                return getComponent(x,y-1,component) * getComponent(x,y+1,component) < 0.0 ? moreThanThreshold(getComponent(x,y-1,component) , getComponent(x,y+1,component), threshold ): MAX_D;
-            }
-            return MAX_D;
-        } else{
-            if (!isOutOfBounds(x+1,y)){
-                return getComponent(x,y,component) * getComponent(x+1,y,component) < 0.0 ? moreThanThreshold(getComponent(x,y,component) , getComponent(x+1,y,component), threshold ): MAX_D;
-            }
-            if (!isOutOfBounds(x,y+1)){
-                return getComponent(x,y,component) * getComponent(x,y+1,component) < 0.0 ? moreThanThreshold(getComponent(x,y,component) , getComponent(x,y+1,component), threshold) : MAX_D;
-            }
-            return MAX_D;
-
-        }
-
-    }
-
-    private double moreThanThreshold(double component, double component1, double threshold) {
-        return (Math.abs(component) + Math.abs(component1)) > threshold ?  0.0 : MAX_D;
-    }
 
     public Image copy(int x1, int y1, int x2, int y2){
         if(isOutOfBounds(x1, y1) || isOutOfBounds(x2, y2))
