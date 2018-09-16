@@ -13,13 +13,17 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        loGFilter("images\\girl.png");
-
+        anisotropicDiffusion("images\\bricks.jpg", 100, 5, Image.AnisotropicBorderDetector.LECLERC);
     }
 
     /**
      * Try me
      */
+
+    public static void anisotropicDiffusion(String file, int t, double sigma, Image.AnisotropicBorderDetector detector) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.anisotropicDiffusion(t, sigma, detector).toBufferedImage(), "bmp", new File("images\\anisotropic.BMP"));
+    }
 
     public static void prewitt(String file) throws IOException{
         Image img = new Image(file);

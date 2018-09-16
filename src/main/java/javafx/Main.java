@@ -6,6 +6,7 @@ import formats.Ppm;
 import formats.Raw;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.embed.swing.SwingFXUtils;
@@ -192,8 +193,6 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.equalize(), stage, root);
         });
-        MenuItem threshold = new MenuItem("Threshold");
-        threshold.setOnAction(x-> threshold(stage, root));
         MenuItem greyscale = new MenuItem("Greyscale");
         greyscale.setOnAction(x-> {
             if(stack.isEmpty()){
@@ -214,7 +213,7 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.dynamicRangeCompression(), stage, root);
         });
-        unaryOps.getItems().addAll(scalarProduct, negative, automaticContrast, equalization, greyscale, threshold,gammaCorrection, dynamicRangeCompression);
+        unaryOps.getItems().addAll(scalarProduct, negative, automaticContrast, equalization, greyscale, gammaCorrection, dynamicRangeCompression);
 
 
         //Binary
@@ -301,8 +300,36 @@ public class Main extends Application {
         });
         MenuItem gauss = new MenuItem("Gauss");
         gauss.setOnAction(e-> gaussFilter(stage, root));
-        MenuItem contourEnhancement = new MenuItem("Contour enhancement");
-        contourEnhancement.setOnAction(e-> {
+        MenuItem anisotropicDiffusion = new MenuItem("Anisotropic diffusion");
+        anisotropicDiffusion.setOnAction(e-> anisotropicDiffusion(stage, root));
+        filtersMenu.getItems().addAll(mean,median, weightedMedian, gauss, anisotropicDiffusion);
+
+        /**
+         * THRESHOLDS
+         */
+
+        Menu thresholdMenu = new Menu("Threshold");
+
+        MenuItem manualThreshold = new MenuItem("Manual");
+        manualThreshold.setOnAction(x-> threshold(stage, root));
+        MenuItem automaticThreshold = new MenuItem("Automatic");
+        automaticThreshold.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.automaticThresholding(), stage, root);
+        });
+        thresholdMenu.getItems().addAll(manualThreshold, automaticThreshold);
+
+        /**
+         * BORDER DETECTION
+         */
+
+        Menu borderDetectionMenu = new Menu("Border detection");
+        MenuItem basic = new MenuItem("Basic");
+        basic.setOnAction(e-> {
             if(stack.isEmpty()){
                 showErrorModal(stage, "Empty stack");
                 return;
@@ -310,9 +337,31 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.contourEnhancement(), stage, root);
         });
-        filtersMenu.getItems().addAll(mean,median, weightedMedian, gauss, contourEnhancement);
+        MenuItem prewitt = new MenuItem("Prewitt");
+        prewitt.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.prewitt(), stage, root);
+        });
+        MenuItem sobel = new MenuItem("Sobel");
+        sobel.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.sobel(), stage, root);
+        });
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel);
 
-        menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu);
+        /**
+         *
+         */
+
+        menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu, thresholdMenu, borderDetectionMenu);
 
     }
 
@@ -1003,12 +1052,14 @@ public class Main extends Application {
             return;
         }
 
-        Text centerLabel = new Text("Value");
-        Text muLabel = new Text("        mu");
+        final Slider thresholdLevel = new Slider(0, 1, 0.5);
 
-        TextField muField = new TextField();
+        thresholdLevel.setShowTickLabels(true);
+        thresholdLevel.setShowTickMarks(true);
 
-        Button submit = new Button("OK");
+        final Label thresholdCaption = new Label("Threshold Level:");
+
+        final Label thresholdValue = new Label(Double.toString(thresholdLevel.getValue()));
 
 
         GridPane gridPane = new GridPane();
@@ -1019,16 +1070,29 @@ public class Main extends Application {
 
         gridPane.setAlignment(Pos.CENTER);
 
-        gridPane.add(centerLabel, 0, 0);
-        gridPane.add(muLabel, 0, 1);
-        gridPane.add(muField, 1, 1);
-        gridPane.add(submit, 0, 2);
+        gridPane.add(thresholdLevel, 0, 0);
+        gridPane.add(thresholdCaption, 1, 0);
+        gridPane.add(thresholdValue, 2, 0);
 
-        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
-
-        centerLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
-        muLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        thresholdCaption.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        thresholdValue.setStyle("-fx-font: normal bold 20px 'Arial' ");
         gridPane.setStyle("-fx-background-color: WHITE;");
+
+        thresholdLevel.valueProperty().addListener(new ChangeListener<Number>() {
+
+            formats.Image img = stack.peek();
+
+            public void changed(ObservableValue<? extends Number> ov,
+                                Number old_val, Number new_val) {
+
+                thresholdValue.setText(String.format("%.2f", new_val));
+
+                formats.Image popped = stack.pop();
+
+                pushAndRender(img.thresholding((Double)new_val), stage, root);
+
+            }
+        });
 
         Scene scene = new Scene(gridPane);
 
@@ -1042,23 +1106,6 @@ public class Main extends Application {
 
         newWindow.show();
 
-        submit.setOnAction(event -> {
-            try {
-
-                Double mu = Double.valueOf(muField.getText());
-
-                if(mu < 0 || mu > 1)
-                    throw new Exception();
-
-                formats.Image image = stack.pop().thresholding(mu);
-
-                pushAndRender(image, stage, root);
-
-            } catch (Exception e) {
-                showErrorModal(stage,"Invalid threshold value, try again");
-            }
-            newWindow.close();
-        });
     }
 
 
@@ -1616,6 +1663,101 @@ public class Main extends Application {
         });
 
     }
+
+
+
+    private void anisotropicDiffusion(Stage stage, BorderPane root){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+
+        Text detectorLabel = new Text("Detector");
+        ChoiceBox detectorChoice = new ChoiceBox(FXCollections.observableArrayList("Leclerc", "Lorentz"));
+
+        Text TLabel = new Text("Iterations");
+        TextField TField = new TextField();
+
+        Text SLabel = new Text("Sigma");
+        TextField SField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(detectorLabel, 0, 0);
+        gridPane.add(detectorChoice, 1, 0);
+        gridPane.add(TLabel, 0, 1);
+        gridPane.add(TField, 1, 1);
+        gridPane.add(SLabel, 0, 2);
+        gridPane.add(SField, 1, 2);
+        gridPane.add(submit, 0, 3);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        detectorLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        TLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        SLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Anisotropic diffusion");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Integer index = detectorChoice.getSelectionModel().getSelectedIndex();
+
+
+                formats.Image.AnisotropicBorderDetector detector = null;
+
+                switch (index){
+                    case 0:
+                        detector = formats.Image.AnisotropicBorderDetector.LECLERC;
+                        break;
+                    case 1:
+                        detector = formats.Image.AnisotropicBorderDetector.LORENTZ;
+                        break;
+                    default:
+                        showErrorModal(stage,"Please select a valid detector");
+                        return;
+
+                }
+
+                Integer t = Integer.valueOf(TField.getText());
+                Double s = Double.valueOf(SField.getText());
+
+                if (t <= 0){
+                    showErrorModal(stage,"Invalid number of iterations");
+                    return;
+                }
+
+                formats.Image img = stack.pop();
+                pushAndRender(img.anisotropicDiffusion(t, s, detector),stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid dimensions, try again");
+            }
+            newWindow.close();
+        });
+    }
+
 
     private void drawGrayScale(Stage stage, BorderPane root){
         formats.Image grayScale = ImageDrawingUtils.scale(Encoding.GS, ImageDrawingUtils.grayScale);

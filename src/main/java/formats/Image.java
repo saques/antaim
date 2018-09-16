@@ -32,6 +32,9 @@ public class Image implements Cloneable{
 
     private static final TriFunction<Double, Double, Double, Double> linearAdjust = (c, min, max) -> (c - min)/(max-min);
 
+    private static int IDs = 0;
+
+    private int id;
 
     double[] data;
     @Getter
@@ -40,6 +43,7 @@ public class Image implements Cloneable{
     Encoding encoding;
 
     public Image(int width, int height, Encoding encoding, boolean initData){
+        id = IDs ++;
         this.width = width;
         this.height = height;
         this.encoding = encoding;
@@ -68,6 +72,10 @@ public class Image implements Cloneable{
         Image image = new Image(width, height, encoding, false);
         image.data = data.clone();
         return image;
+    }
+
+    public int id(){
+        return id;
     }
 
     public double getComponent(int x, int y, int component) {
@@ -961,7 +969,6 @@ public class Image implements Cloneable{
                               { 0.0,  0.0,  0.0},
                               { 1.0,  1.0,  1.0}};
 
-
         return firstDerivativeContourEnhancement(MASK_DX, MASK_DY);
     }
 
@@ -980,6 +987,62 @@ public class Image implements Cloneable{
 
         return firstDerivativeContourEnhancement(MASK_DX, MASK_DY);
     }
+
+    public enum AnisotropicBorderDetector {
+        LECLERC((s, d) -> Math.exp(-1.0*Math.pow(d, 2)/Math.pow(s, 2))),
+        LORENTZ((s, d) -> 1.0/(1+(Math.pow(d, 2)/Math.pow(s, 2))));
+
+        private BiFunction<Double, Double, Double> function;
+        AnisotropicBorderDetector(BiFunction<Double, Double, Double> function){
+            this.function = function;
+        }
+    }
+
+    public Image anisotropicDiffusion(int t, double sigma, AnisotropicBorderDetector detector){
+        if(t <= 0 || encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = clone();
+
+        while (t > 0){
+
+            Image next = new Image(width, height, encoding, true);
+
+            for(int i = 0; i < width; i++){
+                for(int j = 0; j < height; j++){
+                    for(int c = 0; c < encoding.getBands(); c++){
+
+                        double v = ans.getComponent(i, j, c);
+
+                        double vn = ans.getComponent(Math.floorMod(i+1, width), j, c) - v;
+                        double vs = ans.getComponent(Math.floorMod(i-1, width), j, c) - v;
+                        double ve = ans.getComponent(i, Math.floorMod(j-1, height), c) - v;
+                        double vw = ans.getComponent(i, Math.floorMod(j+1, height), c) - v;
+
+                        vn *= detector.function.apply(sigma, vn);
+                        vs *= detector.function.apply(sigma, vs);
+                        ve *= detector.function.apply(sigma, ve);
+                        vw *= detector.function.apply(sigma, vw);
+
+                        double vdef = v + 0.25*(vn + vs + ve + vw);
+
+                        if(t == 1)
+                            next.setComponent(i, j, c, vdef);
+                        else
+                            next.setComponentNoRound(i, j, c, vdef);
+                    }
+                }
+            }
+
+            ans = next;
+
+            t--;
+        }
+
+        return ans;
+    }
+
+
 
 
     public Image loGFilter(int n, int sigma, double threshold){
