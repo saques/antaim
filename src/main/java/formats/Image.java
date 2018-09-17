@@ -1129,7 +1129,7 @@ public class Image implements Cloneable{
             throw new IllegalArgumentException();
 
         int d = n/2;
-        BiFunction <Integer, Integer ,Function<Double,Double >> bilateral = ( x , y ) -> ( module ) -> ( Math.exp( ((-1) * (Math.pow(x,2) + Math.pow(y,2))) / (2 * sigmaS) - ( module / (2*sigmaR) )  ));
+        BiFunction <Integer, Integer ,Function<Double,Double >> bilateral = ( x , y ) -> ( module ) -> ( Math.exp( (((-1) * (Math.pow(x,2) + Math.pow(y,2))) / (2 * Math.pow(sigmaS,2))) - ( module / (2* Math.pow(sigmaR,2)) )  ));
         ArrayList<ArrayList<Function<Double,Double >>>  MASK = new ArrayList<>();
 
         for ( int j = 0  ; j < n ; j++){
@@ -1152,15 +1152,15 @@ public class Image implements Cloneable{
                     for (int y = j - d; y <= j + d; y++) {
                         for(int c = 0; c < encoding.getBands(); c++) {
                             if(!isOutOfBounds(x,y))
-                                module[x - i + d][y - j + d] += Math.pow((getComponent(i,j,c) - getComponent(x,y,c)) , 2);
+                                module[x - i + d][y - j + d] += Math.pow((getComponent(i,j,c) - getComponent(Math.floorMod(x, width), Math.floorMod(y, height), c)) , 2);
                         }
-                        module[x - i + d][y - j + d] += Math.sqrt(module[x - i + d][y - j + d]);
                     }
                 }
-                double accum = 0;
-                double aux = 0;
-                double divisor = 0;
+
                 for(int c = 0; c < encoding.getBands(); c++) {
+                    double accum = 0;
+                    double aux = 0;
+                    double divisor = 0;
                     for (int x = i - d; x <= i + d; x++) {
                         for (int y = j - d; y <= j + d; y++) {
                             aux = MASK.get(x - i + d).get(y - j + d).apply(module[x - i + d][y - j + d]);
