@@ -20,9 +20,9 @@ public final class PlayGround {
      * Try me
      */
 
-    public static void anisotropicDiffusion(String file, int t, double sigma, Image.AnisotropicBorderDetector detector) throws IOException{
+    public static void anisotropicDiffusion(String file, int t, double sigma, Image.DiffusionBorderDetector detector) throws IOException{
         Image img = new Image(file);
-        ImageIO.write(img.anisotropicDiffusion(t, sigma, detector).toBufferedImage(), "bmp", new File("images\\anisotropic.BMP"));
+        ImageIO.write(img.diffusion(t, sigma, detector).toBufferedImage(), "bmp", new File("images\\anisotropic.BMP"));
     }
 
     public static void prewitt(String file) throws IOException{
