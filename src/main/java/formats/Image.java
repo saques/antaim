@@ -705,8 +705,20 @@ public class Image implements Cloneable{
             case RGB:
                 for(int x = 0; x < width; x++){
                     for(int y = 0; y < height; y++){
-                        double val = getComponent(x, y, 0) + getComponent(x, y, 1) + getComponent(x, y, 2);
-                        ans.setComponent(x, y, 0, val/3);
+
+                        double r = getComponent(x, y, 0);
+                        double g = getComponent(x, y, 1);
+                        double b = getComponent(x, y, 2);
+
+                        double csrgb = 0.2126*r + 0.7152*g + 0.0722*b;
+
+                        if(csrgb <= 0.0031308){
+                            csrgb *= 12.92;
+                        } else {
+                            csrgb = 1.055 * Math.pow(csrgb, 1.0/2.4) - 0.055;
+                        }
+
+                        ans.setComponent(x, y, 0, csrgb);
                     }
                 }
                 break;
@@ -846,6 +858,17 @@ public class Image implements Cloneable{
         return ans;
     }
 
+    public Image genericConvolution(double[][] MASK){
+        if (encoding.equals(Encoding.HSV) || MASK.length == 0 || MASK.length != MASK[0].length)
+            throw new IllegalArgumentException();
+
+        List<ImageMaxMin> ans = convolution(new ConvolutionParameters(MASK, false, 1));
+
+        ImageMaxMin imageMaxMin = ans.get(0);
+
+        return imageMaxMin.image.adjust(linearAdjust, imageMaxMin.max, imageMaxMin.min);
+    }
+
 
     private Image medianMask(int[][] MASK){
         if((MASK.length % 2) == 0 || MASK[0].length != MASK.length|| encoding.equals(Encoding.HSV))
@@ -861,7 +884,7 @@ public class Image implements Cloneable{
                     for(int x = i - d; x <= i + d; x ++){
                         for(int y = j - d; y <= j + d; y++){
                             if(!isOutOfBounds(x, y))
-                                for (int t = 0; t < MASK[x + 1 - i][y + 1 - j]; t++)
+                                for (int t = 0; t < MASK[x + d - i][y + d - j]; t++)
                                     list.add(getComponent(x, y, c));
                         }
                     }
@@ -990,17 +1013,18 @@ public class Image implements Cloneable{
         return firstDerivativeContourEnhancement(MASK_DX, MASK_DY);
     }
 
-    public enum AnisotropicBorderDetector {
-        LECLERC((s, d) -> Math.exp(-1.0*Math.pow(d, 2)/Math.pow(s, 2))),
-        LORENTZ((s, d) -> 1.0/(1+(Math.pow(d, 2)/Math.pow(s, 2))));
+    public enum DiffusionBorderDetector {
+        LECLERC((s, d) -> Math.exp(-1.0*Math.pow(d/s, 2))),
+        LORENTZ((s, d) -> 1.0/(1+(Math.pow(d/s, 2)))),
+        ISOTROPIC((s, d) -> 1.0);
 
         private BiFunction<Double, Double, Double> function;
-        AnisotropicBorderDetector(BiFunction<Double, Double, Double> function){
+        DiffusionBorderDetector(BiFunction<Double, Double, Double> function){
             this.function = function;
         }
     }
 
-    public Image anisotropicDiffusion(int t, double sigma, AnisotropicBorderDetector detector){
+    public Image diffusion(int t, double sigma, DiffusionBorderDetector detector){
         if(t <= 0 || encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 

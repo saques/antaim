@@ -16,7 +16,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.chart.AreaChart;
-import javafx.scene.chart.CategoryAxis;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
@@ -213,7 +212,9 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.dynamicRangeCompression(), stage, root);
         });
-        unaryOps.getItems().addAll(scalarProduct, negative, automaticContrast, equalization, greyscale, gammaCorrection, dynamicRangeCompression);
+        MenuItem convolution3by3 = new MenuItem("3*3 Convolution");
+        convolution3by3.setOnAction(x -> threeByThreeMask(stage, root));
+        unaryOps.getItems().addAll(scalarProduct, negative, automaticContrast, equalization, greyscale, gammaCorrection, dynamicRangeCompression, convolution3by3);
 
 
         //Binary
@@ -300,9 +301,9 @@ public class Main extends Application {
         });
         MenuItem gauss = new MenuItem("Gauss");
         gauss.setOnAction(e-> gaussFilter(stage, root));
-        MenuItem anisotropicDiffusion = new MenuItem("Anisotropic diffusion");
-        anisotropicDiffusion.setOnAction(e-> anisotropicDiffusion(stage, root));
-        filtersMenu.getItems().addAll(mean,median, weightedMedian, gauss, anisotropicDiffusion);
+        MenuItem diffusion = new MenuItem("Iso/Anisotropic diffusion");
+        diffusion.setOnAction(e-> diffusion(stage, root));
+        filtersMenu.getItems().addAll(mean,median, weightedMedian, gauss, diffusion);
 
         /**
          * THRESHOLDS
@@ -1666,7 +1667,7 @@ public class Main extends Application {
 
 
 
-    private void anisotropicDiffusion(Stage stage, BorderPane root){
+    private void diffusion(Stage stage, BorderPane root){
         if(stack.isEmpty()){
             showErrorModal(stage, "Empty stack");
             return;
@@ -1674,7 +1675,7 @@ public class Main extends Application {
 
 
         Text detectorLabel = new Text("Detector");
-        ChoiceBox detectorChoice = new ChoiceBox(FXCollections.observableArrayList("Leclerc", "Lorentz"));
+        ChoiceBox detectorChoice = new ChoiceBox(FXCollections.observableArrayList("Leclerc", "Lorentz", "Isotropic"));
 
         Text TLabel = new Text("Iterations");
         TextField TField = new TextField();
@@ -1712,7 +1713,7 @@ public class Main extends Application {
 
 
         Stage newWindow = new Stage();
-        newWindow.setTitle("Anisotropic diffusion");
+        newWindow.setTitle("Diffusion settings");
         newWindow.setScene(scene);
 
         newWindow.setX(stage.getX() + 200);
@@ -1725,14 +1726,17 @@ public class Main extends Application {
                 Integer index = detectorChoice.getSelectionModel().getSelectedIndex();
 
 
-                formats.Image.AnisotropicBorderDetector detector = null;
+                formats.Image.DiffusionBorderDetector detector = null;
 
                 switch (index){
                     case 0:
-                        detector = formats.Image.AnisotropicBorderDetector.LECLERC;
+                        detector = formats.Image.DiffusionBorderDetector.LECLERC;
                         break;
                     case 1:
-                        detector = formats.Image.AnisotropicBorderDetector.LORENTZ;
+                        detector = formats.Image.DiffusionBorderDetector.LORENTZ;
+                        break;
+                    case 2:
+                        detector = formats.Image.DiffusionBorderDetector.ISOTROPIC;
                         break;
                     default:
                         showErrorModal(stage,"Please select a valid detector");
@@ -1749,7 +1753,105 @@ public class Main extends Application {
                 }
 
                 formats.Image img = stack.pop();
-                pushAndRender(img.anisotropicDiffusion(t, s, detector),stage, root);
+                pushAndRender(img.diffusion(t, s, detector),stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid dimensions, try again");
+            }
+            newWindow.close();
+        });
+    }
+
+
+    private void threeByThreeMask(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+
+        Text label = new Text("Mask");
+
+        TextField _00 = new TextField();
+        TextField _01 = new TextField();
+        TextField _02 = new TextField();
+
+        TextField _10 = new TextField();
+        TextField _11 = new TextField();
+        TextField _12 = new TextField();
+
+        TextField _20 = new TextField();
+        TextField _21 = new TextField();
+        TextField _22 = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(label, 0, 0);
+
+        gridPane.add(_00, 0, 1);
+        gridPane.add(_01, 1, 1);
+        gridPane.add(_02, 2, 1);
+
+        gridPane.add(_10, 0, 2);
+        gridPane.add(_11, 1, 2);
+        gridPane.add(_12, 2, 2);
+
+        gridPane.add(_20, 0, 3);
+        gridPane.add(_21, 1, 3);
+        gridPane.add(_22, 2, 3);
+
+
+        gridPane.add(submit, 0, 4);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        label.setStyle("-fx-font: normal bold 20px 'Arial' ");
+
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("3*3 Convolution");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double d00 = Double.valueOf(_00.getText());
+                Double d01 = Double.valueOf(_01.getText());
+                Double d02 = Double.valueOf(_02.getText());
+
+                Double d10 = Double.valueOf(_10.getText());
+                Double d11 = Double.valueOf(_11.getText());
+                Double d12 = Double.valueOf(_12.getText());
+
+                Double d20 = Double.valueOf(_20.getText());
+                Double d21 = Double.valueOf(_21.getText());
+                Double d22 = Double.valueOf(_22.getText());
+
+                double[][] MASK = {{d00, d01, d02},
+                                   {d10, d11, d12},
+                                   {d20, d21, d22}};
+
+                formats.Image img = stack.pop();
+                pushAndRender(img.genericConvolution(MASK) ,stage, root);
 
             } catch (Exception e) {
                 showErrorModal(stage,"Invalid dimensions, try again");
