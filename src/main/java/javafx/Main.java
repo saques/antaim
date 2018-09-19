@@ -322,7 +322,16 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.automaticThresholding(), stage, root);
         });
-        thresholdMenu.getItems().addAll(manualThreshold, automaticThreshold);
+        MenuItem otsu = new MenuItem("Otsu");
+        otsu.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.otsu(), stage, root);
+        });
+        thresholdMenu.getItems().addAll(manualThreshold, automaticThreshold, otsu);
 
         /**
          * BORDER DETECTION
@@ -1053,6 +1062,8 @@ public class Main extends Application {
             return;
         }
 
+        formats.Image img = stack.peek();
+
         final Slider thresholdLevel = new Slider(0, 1, 0.5);
 
         thresholdLevel.setShowTickLabels(true);
@@ -1062,18 +1073,28 @@ public class Main extends Application {
 
         final Label thresholdValue = new Label(Double.toString(thresholdLevel.getValue()));
 
+        Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
+
+        ImageView iv = new ImageView(fxImg);
+
+        iv.setFitWidth(PREVIEW_WIDTH);
+        iv.setFitHeight(PREVIEW_HEIGHT);
+        iv.setPreserveRatio(true);
+
 
         GridPane gridPane = new GridPane();
-        gridPane.setMinSize(400, 200);
+        gridPane.setMinSize(500, 200);
         gridPane.setPadding(new Insets(10, 10, 10, 10));
         gridPane.setVgap(5);
         gridPane.setHgap(5);
 
         gridPane.setAlignment(Pos.CENTER);
 
-        gridPane.add(thresholdLevel, 0, 0);
-        gridPane.add(thresholdCaption, 1, 0);
-        gridPane.add(thresholdValue, 2, 0);
+        gridPane.add(iv, 0, 0);
+        gridPane.add(thresholdLevel, 1, 0);
+        gridPane.add(thresholdCaption, 2, 0);
+        gridPane.add(thresholdValue, 3, 0);
+
 
         thresholdCaption.setStyle("-fx-font: normal bold 20px 'Arial' ");
         thresholdValue.setStyle("-fx-font: normal bold 20px 'Arial' ");
@@ -1081,16 +1102,20 @@ public class Main extends Application {
 
         thresholdLevel.valueProperty().addListener(new ChangeListener<Number>() {
 
-            formats.Image img = stack.peek();
+            formats.Image prev = img;
 
             public void changed(ObservableValue<? extends Number> ov,
                                 Number old_val, Number new_val) {
 
                 thresholdValue.setText(String.format("%.2f", new_val));
 
-                formats.Image popped = stack.pop();
+                formats.Image ans = img.thresholding((Double)new_val);
 
-                pushAndRender(img.thresholding((Double)new_val), stage, root);
+                stack.replace(prev, ans);
+
+                prev = ans;
+
+                renderStackTop(stage, root);
 
             }
         });

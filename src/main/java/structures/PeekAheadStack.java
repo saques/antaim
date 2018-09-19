@@ -39,6 +39,13 @@ public interface PeekAheadStack<E> {
     E peek(int n);
 
     /**
+     * Replaces an existing value for a given one in the {@link PeekAheadStack}
+     * @param e
+     * @param o
+     */
+    void replace(E e, E o);
+
+    /**
      *
      * @return true if this {@link PeekAheadStack} is empty
      */

@@ -39,4 +39,12 @@ public class LinkedListPeekAheadStack<E> implements PeekAheadStack<E> {
             throw new IndexOutOfBoundsException();
         return l.get(n);
     }
+
+    @Override
+    public void replace(E e, E o) {
+        int idx = l.indexOf(e);
+        if(idx == -1)
+            return;
+        l.set(idx, o);
+    }
 }
