@@ -13,7 +13,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        bilateralFilter("images\\lena.png");
+        otsu("images\\lena.jpg");
     }
 
     /**
@@ -49,6 +49,12 @@ public final class PlayGround {
         Image img = new Image(file);
         ImageIO.write(img.toGS().bilateralFilter(7,2,30).toBufferedImage(), "png", new File("images\\bilateralFilter.png"));
         ImageIO.write(img.toGS().bilateralFilter(7,20,30).toBufferedImage(), "png", new File("images\\bilateralFilter2.png"));
+
+    }
+
+    public static void otsu(String file) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.sobel().toGS().otsu().toBufferedImage(), "png", new File("images\\otsu.png"));
 
     }
 

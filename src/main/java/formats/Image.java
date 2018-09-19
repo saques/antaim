@@ -18,6 +18,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class Image implements Cloneable{
 
@@ -433,7 +434,7 @@ public class Image implements Cloneable{
         double[] histogram = histogram(component);
 
         System.out.println(histogram[0]);
-        double[] relativeHisto = relativeHistogram(histogram, Arrays.stream(histogram).sum());
+        double[] relativeHisto = cummulativeRelativeHistogram(histogram, Arrays.stream(histogram).sum());
         return equalizedHistogram(histogram,relativeHisto);
     }
 
@@ -442,7 +443,7 @@ public class Image implements Cloneable{
 
         double[] histogram = this.histogram(component);
 
-        double[] relativeHisto = relativeHistogram(histogram, Arrays.stream(histogram).sum());
+        double[] relativeHisto = cummulativeRelativeHistogram(histogram, Arrays.stream(histogram).sum());
 
         double[] transf = equalizedTransformation(histogram,relativeHisto);
 
@@ -479,7 +480,7 @@ public class Image implements Cloneable{
         return ans;
     }
 
-    public double[] relativeHistogram(double [] h , double n){
+    public double[] cummulativeRelativeHistogram(double [] h , double n){
         if (h == null)
             throw new IllegalStateException("Histogram can't be null");
 
@@ -492,6 +493,54 @@ public class Image implements Cloneable{
 
         ans = Arrays.stream(ans).map( x -> x / n).toArray();
         return ans;
+    }
+
+
+    private double[] cummulativeMean(double[] relativeHistogram) {
+        if (relativeHistogram == null)
+            throw new IllegalStateException("Histogram can't be null");
+
+        double [] ans = new double[relativeHistogram.length];
+
+        ans[0] = 0;
+
+        for (int i = 1 ; i < relativeHistogram.length; i++){
+            ans[i] = ans[i-1] + i * relativeHistogram[i];
+        }
+        return ans;
+    }
+
+
+    private double[] classVariance(double[] cumMean, double[] cumRelHisto) {
+        if (cumMean == null || cumRelHisto == null)
+            throw new IllegalStateException("Histogram can't be null");
+
+        double [] ans = new double[cumMean.length];
+
+        for (int i = 0 ; i < cumMean.length; i++){
+            if (cumRelHisto[i] == 1)
+                ans[i] = 0;
+            else
+                ans[i] = Math.pow((cumMean[cumMean.length - 1] * cumRelHisto[i]) - cumMean[i],2) / (cumRelHisto[i] * ( 1 - cumRelHisto[i]));
+            System.out.println(ans[i] + " "+i);
+        }
+        return ans;
+    }
+
+    private double getOtsuThreshold(double[] classVariance) {
+         List<Integer> maximums = new ArrayList<Integer>();
+         double maxVal = Double.MIN_VALUE;
+         for (int i = 0; i < classVariance.length ; i++){
+             if (classVariance[i] > maxVal) {
+                 maxVal = classVariance[i];
+                 maximums.clear();
+                 maximums.add(i);
+             } else if (classVariance[i] == maxVal){
+                 maximums.add(i);
+             }
+
+         }
+         return maximums.stream().mapToInt(a -> a).average().getAsDouble()/(double)M;
     }
 
 
@@ -1175,6 +1224,34 @@ public class Image implements Cloneable{
             }
         }
         return ans;
+    }
+
+    public Image otsu(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+        Image ans = clone();
+        for(int i = 0; i < encoding.getBands(); i++)
+            ans.otsu(i);
+        return ans;
+    }
+
+    public void otsu(int component){
+        checkConstraints(component, Encoding.HSV);
+
+        double[] histogram = this.histogram(component);
+
+        double[] cummulativeRelativeHisto = cummulativeRelativeHistogram(histogram, Arrays.stream(histogram).sum());
+
+        double N = Arrays.stream(histogram).sum();
+
+        double[] relativeHistogram = Arrays.stream(histogram).map(x -> x / N).toArray();
+
+        double[] cummulativeMean = cummulativeMean(relativeHistogram);
+
+        double[] classVariance = classVariance(cummulativeMean,cummulativeRelativeHisto);
+
+        thresholding(component, getOtsuThreshold(classVariance));
+
     }
 
 
