@@ -11,6 +11,7 @@ import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -214,7 +215,18 @@ public class Main extends Application {
         });
         MenuItem convolution3by3 = new MenuItem("3*3 Convolution");
         convolution3by3.setOnAction(x -> threeByThreeMask(stage, root));
-        unaryOps.getItems().addAll(scalarProduct, negative, automaticContrast, equalization, greyscale, gammaCorrection, dynamicRangeCompression, convolution3by3);
+        MenuItem laplace = new MenuItem("Laplace");
+        laplace.setOnAction(e ->{
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.laplace(), stage, root);
+        });
+        MenuItem lOG = new MenuItem("Laplacian of Gaussian");
+        lOG.setOnAction(x-> lOG(stage, root));
+        unaryOps.getItems().addAll(scalarProduct, negative, automaticContrast, equalization, greyscale, gammaCorrection, dynamicRangeCompression, convolution3by3,laplace,lOG);
 
 
         //Binary
@@ -303,7 +315,9 @@ public class Main extends Application {
         gauss.setOnAction(e-> gaussFilter(stage, root));
         MenuItem diffusion = new MenuItem("Iso/Anisotropic diffusion");
         diffusion.setOnAction(e-> diffusion(stage, root));
-        filtersMenu.getItems().addAll(mean,median, weightedMedian, gauss, diffusion);
+        MenuItem bilateral = new MenuItem("Bilateral Filter");
+        bilateral.setOnAction(e-> bilateral(stage, root));
+        filtersMenu.getItems().addAll(mean,median, weightedMedian, gauss, diffusion,bilateral);
 
         /**
          * THRESHOLDS
@@ -373,6 +387,154 @@ public class Main extends Application {
 
         menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu, thresholdMenu, borderDetectionMenu);
 
+    }
+
+    private void bilateral(Stage stage, BorderPane root) {
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+
+
+        Text TLabel = new Text("Sigma s");
+        TextField sField = new TextField();
+
+        Text SLabel = new Text("Sigma r");
+        TextField rField = new TextField();
+
+        Button submit = new Button("Apply");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(TLabel, 0, 0);
+        gridPane.add(sField, 1, 0);
+        gridPane.add(SLabel, 0, 1);
+        gridPane.add(rField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        TLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        SLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Bilateral Filter settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+        formats.Image img = stack.peek();
+        formats.Image prev = img;
+        submit.setOnAction(new EventHandler<ActionEvent>() {
+
+            formats.Image prev = img;
+            @Override
+            public void handle(ActionEvent event) {
+                try {
+                    Integer s = Integer.valueOf(sField.getText());
+                    Integer r = Integer.valueOf(rField.getText());
+                    formats.Image ans = img.bilateralFilter(7, s, r);
+                    stack.replace(prev, ans);
+                    prev = ans;
+                    renderStackTop(stage, root);
+                } catch (Exception e) {
+                    showErrorModal(stage, "Invalid dimensions, try again");
+                }
+            }
+        });
+
+    }
+
+
+    private void lOG(Stage stage, BorderPane root) {
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        formats.Image img = stack.peek();
+
+        final Slider thresholdLevel = new Slider(0, 0.3, 0.15);
+
+        thresholdLevel.setShowTickLabels(true);
+        thresholdLevel.setShowTickMarks(true);
+
+        final Label thresholdCaption = new Label("Threshold Level:");
+
+        final Label thresholdValue = new Label(Double.toString(thresholdLevel.getValue()));
+
+        Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
+
+        ImageView iv = new ImageView(fxImg);
+
+        iv.setFitWidth(PREVIEW_WIDTH);
+        iv.setFitHeight(PREVIEW_HEIGHT);
+        iv.setPreserveRatio(true);
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(500, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(iv, 0, 0);
+        gridPane.add(thresholdLevel, 1, 0);
+        gridPane.add(thresholdCaption, 2, 0);
+        gridPane.add(thresholdValue, 3, 0);
+
+
+        thresholdCaption.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        thresholdValue.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        thresholdLevel.valueProperty().addListener(new ChangeListener<Number>() {
+
+            formats.Image prev = img;
+
+            public void changed(ObservableValue<? extends Number> ov,
+                                Number old_val, Number new_val) {
+
+                thresholdValue.setText(String.format("%.2f", new_val));
+
+                formats.Image ans = img.loGFilter(7,1,(Double)new_val);
+
+                stack.replace(prev, ans);
+
+                prev = ans;
+
+                renderStackTop(stage, root);
+
+            }
+        });
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Threshold settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
     }
 
     @Override

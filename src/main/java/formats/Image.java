@@ -1194,7 +1194,7 @@ public class Image implements Cloneable{
     }
 
 
-    public Image bilateralFilter(int n , double sigmaS, int sigmaR){
+    public Image bilateralFilter(int n , int sigmaS, int sigmaR){
         if((n % 2) == 0 || encoding.equals(Encoding.HSV) || sigmaS < 0 || sigmaR < 0)
             throw new IllegalArgumentException();
 
