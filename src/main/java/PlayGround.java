@@ -13,7 +13,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        otsu("images\\lena.jpg");
+        susan("images\\TEST.PNG");
     }
 
     /**
@@ -54,11 +54,15 @@ public final class PlayGround {
 
     public static void otsu(String file) throws IOException{
         Image img = new Image(file);
-        ImageIO.write(img.sobel().toGS().otsu().toBufferedImage(), "png", new File("images\\otsu.png"));
+        ImageIO.write(img.loGFilter(41,5,0).meanFilter(3).negative().toBufferedImage(), "png", new File("images\\otsu.png"));
 
     }
 
+    public static void susan(String file) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.susanDetector(11.0/255.0).toBufferedImage(), "png", new File("images\\susanita.png"));
 
+    }
     public static void weightedMedianFilter() throws IOException{
         Image img = new Image("images\\lena.jpg");
         img.contaminate(1, new SaltAndPepperGenerator(0.05), NoiseApplyMode.DESTRUCTIVE);

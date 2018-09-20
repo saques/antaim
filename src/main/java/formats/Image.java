@@ -1276,6 +1276,53 @@ public class Image implements Cloneable{
     }
 
 
+    public Image susanDetector( double t ){
+            if( encoding.equals(Encoding.HSV) || t < 0 || t > 1)
+                throw new IllegalArgumentException();
+
+            double[][] MASK = {{0.0,0.0,1.0, 1.0, 1.0,0.0,0.0},
+                    {0.0,1.0,1.0, 1.0, 1.0,1.0,0.0},
+                    {1.0,1.0,1.0, 1.0, 1.0,1.0,1.0},
+                    {1.0,1.0,1.0, 1.0, 1.0,1.0,1.0},
+                    {1.0,1.0,1.0, 1.0, 1.0,1.0,1.0},
+                    {0.0,1.0,1.0, 1.0, 1.0,1.0,0.0},
+                    {0.0,0.0,1.0, 1.0, 1.0,0.0,0.0}};
+
+            Image aux = this.toGS();
+            Image ans = new Image(width, height, Encoding.GS, true);
+
+            double[] n = new double[width*height];
+            int d = 3;
+            double pixels = 0.0;
+            for(int i = 0; i < aux.width; i++){
+                for(int j = 0; j < aux.height; j++){
+                    pixels = 0.0;
+                    for(int c = 0; c < aux.encoding.getBands(); c++) {
+                        for (int x = i - 3; x <= i + 3; x++) {
+                            for (int y = j - 3; y <= j + 3; y++) {
+                                if (MASK[x - i + d][y - j + d] != 0.0 && !aux.isOutOfBounds(x,y)  ){
+                                    pixels++;
+                                    if ( Math.abs(aux.getComponent(x,y,c) - aux.getComponent(i,j,c)) < t)
+                                        n[i + j*width]++;
+
+                                }
+                            }
+                        }
+                    }
+                    n[i + j*width] /= pixels;
+                }
+            }
+            for(int c = 0; c < aux.encoding.getBands(); c++) {
+                for (int i = 0; i < n.length; i++) {
+                    if (1 - n[i] > 0.3) {
+                        ans.setComponent(i % aux.width, i / aux.width, c, MAX_D);
+                    }
+                }
+            }
+            return ans;
+    }
+
+
 
 
     public Image copy(int x1, int y1, int x2, int y2){
