@@ -13,7 +13,8 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        susan("images\\TEST.PNG");
+        gaussFilter(3 , 1);
+        //susan("images\\TEST.PNG");
     }
 
     /**

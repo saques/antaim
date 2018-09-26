@@ -29,7 +29,28 @@ public class Image implements Cloneable{
     public static final int M = 0xFF;
     public static final double U = 1.0/M;
 
+    private static final double _45 = Math.toRadians(45);
+    private static final double _90 = Math.toRadians(90);
+    private static final double _135 = Math.toRadians(135);
+
     private static final TriFunction<Double, Double, Double, Double> linearAdjust = (c, min, max) -> (c - min)/(max-min);
+    private static final BiFunction<Double, Double, Double> modulus = (x, y) -> Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+    private static final BiFunction<Double, Double, Double> angle = (x, y) -> {
+        double ans = x != 0 ? Math.atan2(y, x) : 0;
+
+        double ansDeg = Math.toDegrees(ans);
+
+        if((ansDeg>= 0 && ansDeg < 22.5) || (ansDeg >= 157.5 && ansDeg <= 180))
+            ans = 0;
+        else if (ansDeg >= 22.5 && ansDeg < 67.5)
+            ans = _45;
+        else if (ansDeg >= 67.5 && ansDeg < 112.5)
+            ans = _90;
+        else
+            ans = _135;
+
+        return ans;
+    };
 
     private static int IDs = 0;
 
@@ -210,6 +231,21 @@ public class Image implements Cloneable{
             ans.dynamicRangeCompression(c);
 
         return ans;
+    }
+
+    public static void apply(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f, boolean round){
+        for(int i = 0; i < i1.width; i++) {
+            for (int j = 0; j < i1.height; j++) {
+                for(int c = 0; c < i1.encoding.getBands(); c++){
+                    double val = f.apply(i1.getComponent(i, j, c), i2.getComponent(i, j, c));
+                    if(round)
+                        ans.setComponentNoRound(i, j, c, val);
+                    else
+                        ans.setComponent(i, j, c, val);
+                }
+            }
+        }
+
     }
 
     public static void applyAndAdjust(Image i1, Image i2, Image ans, BiFunction<Double, Double, Double> f,
@@ -847,7 +883,7 @@ public class Image implements Cloneable{
         }
     }
 
-    private class ConvolutionParameters {
+    private static class ConvolutionParameters {
         double[][] mask;
         boolean round;
         double divisor;
@@ -991,10 +1027,7 @@ public class Image implements Cloneable{
 
     }
 
-    public Image gaussFilter(int n , double sigma){
-        if((n % 2) == 0 || encoding.equals(Encoding.HSV) || sigma < 0)
-            throw new IllegalArgumentException();
-
+    private static ConvolutionParameters gaussMask(int n, double sigma, boolean round){
         int d = n/2;
         BiFunction <Integer, Integer ,Double > gauss = ( x , y ) -> ( 1 / (2 * Math.PI * Math.pow(sigma,2))) * Math.exp( (- (Math.pow(x,2) + Math.pow(y,2)) ) / ( 2 * Math.pow(sigma,2)) );
         double [][] MASK = new double [n][n];
@@ -1005,9 +1038,64 @@ public class Image implements Cloneable{
                 divisor += MASK[j][k];
             }
         }
+        return new ConvolutionParameters(MASK, round, divisor);
+    }
 
-        return convolution(new ConvolutionParameters(MASK, true, divisor)).get(0).image;
+    public Image gaussFilter(int n , double sigma){
+        if((n % 2) == 0 || encoding.equals(Encoding.HSV) || sigma < 0)
+            throw new IllegalArgumentException();
 
+        return convolution(gaussMask(n, sigma, true)).get(0).image;
+
+    }
+
+    private Image canny(){
+        if(encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        /**
+         * GAUSS FILTERS
+         */
+        List<ImageMaxMin> gauss = convolution(gaussMask(5, 2, true),
+                                              gaussMask(7, 3, true));
+
+        Image gauss2 = gauss.get(0).image, gauss3 = gauss.get(1).image;
+
+        /**
+         * SOBEL EDGE DETECTOR
+         */
+
+        double[][] MASK_DX = {{-1.0, 0.0, 1.0},
+                              {-2.0, 0.0, 2.0},
+                              {-1.0, 0.0, 1.0}};
+
+        double[][] MASK_DY = {{-1.0, -2.0, -1.0},
+                              { 0.0,  0.0,  0.0},
+                              { 1.0,  2.0,  1.0}};
+
+        ConvolutionParameters dx = new ConvolutionParameters(MASK_DX, false, 1),
+                              dy = new ConvolutionParameters(MASK_DY, false, 1);
+
+
+        List<ImageMaxMin> gauss2sobel = gauss2.convolution(dx, dy);
+        List<ImageMaxMin> gauss3sobel = gauss2.convolution(dx, dy);
+
+        Image gauss2sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss2sobel, width, height, encoding);
+        Image gauss3sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss3sobel, width, height, encoding);
+
+        return null;
+    }
+
+    private static Image cannySobelModulusAngleNoMaxSuppr(List<ImageMaxMin> dxdy, int width, int height, Encoding encoding){
+        ImageMaxMin dx = dxdy.get(0), dy = dxdy.get(1);
+
+        Image mod = new Image(width, height, encoding, true);
+        Image ang = new Image(width, height, encoding, false);
+
+        applyAndAdjust(dx.image, dy.image, mod, modulus, linearAdjust);
+        apply(dx.image, dy.image, ang, angle, false);
+
+        return null;
     }
 
     private Image firstDerivativeContourEnhancement(double[][] MASK_DX, double[][] MASK_DY){
@@ -1022,7 +1110,6 @@ public class Image implements Cloneable{
 
         Image ans = new Image(width, height, encoding, true);
 
-        BiFunction<Double, Double, Double> modulus = (x, y) -> Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
         applyAndAdjust(dx.image, dy.image, ans, modulus, linearAdjust);
 
         return ans;
