@@ -13,13 +13,18 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        gaussFilter(3 , 1);
-        //susan("images\\TEST.PNG");
+        canny("images\\bricks.jpg", 0.0, 0.1);
     }
 
     /**
      * Try me
      */
+
+    public static void canny(String file, double t1, double t2) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.canny(t1, t2).toBufferedImage(), "bmp", new File("images\\canny.BMP"));
+    }
+
 
     public static void anisotropicDiffusion(String file, int t, double sigma, Image.DiffusionBorderDetector detector) throws IOException{
         Image img = new Image(file);

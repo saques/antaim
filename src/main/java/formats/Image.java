@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class Image implements Cloneable{
 
@@ -29,9 +28,10 @@ public class Image implements Cloneable{
     public static final int M = 0xFF;
     public static final double U = 1.0/M;
 
-    private static final double _45 = Math.toRadians(45);
-    private static final double _90 = Math.toRadians(90);
-    private static final double _135 = Math.toRadians(135);
+    private static final double W_E = 0;
+    private static final double N_S = 90;
+    private static final double NW_SE = 135;
+    private static final double NE_Sw = 45;
 
     private static final TriFunction<Double, Double, Double, Double> linearAdjust = (c, min, max) -> (c - min)/(max-min);
     private static final BiFunction<Double, Double, Double> modulus = (x, y) -> Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
@@ -39,15 +39,16 @@ public class Image implements Cloneable{
         double ans = x != 0 ? Math.atan2(y, x) : 0;
 
         double ansDeg = Math.toDegrees(ans);
+        ansDeg *= Math.signum(ansDeg);
 
         if((ansDeg>= 0 && ansDeg < 22.5) || (ansDeg >= 157.5 && ansDeg <= 180))
-            ans = 0;
+            ans = W_E;
         else if (ansDeg >= 22.5 && ansDeg < 67.5)
-            ans = _45;
+            ans = NE_Sw;
         else if (ansDeg >= 67.5 && ansDeg < 112.5)
-            ans = _90;
+            ans = N_S;
         else
-            ans = _135;
+            ans = NW_SE;
 
         return ans;
     };
@@ -1049,17 +1050,17 @@ public class Image implements Cloneable{
 
     }
 
-    private Image canny(){
+    public Image canny(double t1, double t2){
         if(encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
         /**
          * GAUSS FILTERS
          */
-        List<ImageMaxMin> gauss = convolution(gaussMask(5, 2, true),
-                                              gaussMask(7, 3, true));
+        List<ImageMaxMin> gauss = convolution(gaussMask(3, 1, true),
+                                              gaussMask(5, 2, true));
 
-        Image gauss2 = gauss.get(0).image, gauss3 = gauss.get(1).image;
+        Image gauss1 = gauss.get(0).image, gauss2 = gauss.get(1).image;
 
         /**
          * SOBEL EDGE DETECTOR
@@ -1076,26 +1077,117 @@ public class Image implements Cloneable{
         ConvolutionParameters dx = new ConvolutionParameters(MASK_DX, false, 1),
                               dy = new ConvolutionParameters(MASK_DY, false, 1);
 
-
+        List<ImageMaxMin> gauss1sobel = gauss1.convolution(dx, dy);
         List<ImageMaxMin> gauss2sobel = gauss2.convolution(dx, dy);
-        List<ImageMaxMin> gauss3sobel = gauss2.convolution(dx, dy);
 
+        Image gauss1sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss1sobel, width, height, encoding);
         Image gauss2sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss2sobel, width, height, encoding);
-        Image gauss3sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss3sobel, width, height, encoding);
 
-        return null;
+        /**
+         * HISTERESIS THRESHOLDING
+         */
+
+        Image gauss1histTh = histeresisThreshold(gauss1sobelNoMaxSuppr, t1, t2);
+        Image gauss2histTh = histeresisThreshold(gauss2sobelNoMaxSuppr, t1, t2);
+
+        /**
+         * FINISH
+         */
+
+        return intersection(gauss1histTh, gauss2histTh);
     }
 
     private static Image cannySobelModulusAngleNoMaxSuppr(List<ImageMaxMin> dxdy, int width, int height, Encoding encoding){
         ImageMaxMin dx = dxdy.get(0), dy = dxdy.get(1);
 
         Image mod = new Image(width, height, encoding, true);
-        Image ang = new Image(width, height, encoding, false);
+        Image ang = new Image(width, height, encoding, true);
 
         applyAndAdjust(dx.image, dy.image, mod, modulus, linearAdjust);
         apply(dx.image, dy.image, ang, angle, false);
 
-        return null;
+        Image ans = new Image(width, height, encoding, true);
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                for(int c = 0; c < encoding.getBands(); c++){
+                    double val = ang.getComponent(i, j, c);
+
+                    double pix = mod.getComponent(i, j, c);
+
+                    double l = 0, r = 0 ;
+
+                    if(Double.compare(val, N_S) == 0){
+                        l = mod.getComponent(i, Math.floorMod(j-1, height), c);
+                        r = mod.getComponent(i, Math.floorMod(j+1, height), c);
+                    } else if (Double.compare(val, W_E) == 0){
+                        l = mod.getComponent(Math.floorMod(i-1, width), j, c);
+                        r = mod.getComponent(Math.floorMod(i+1, width), j, c);
+                    } else if (Double.compare(val, NW_SE) == 0) {
+                        l = mod.getComponent(Math.floorMod(i-1, width), Math.floorMod(j-1, height), c);
+                        r = mod.getComponent(Math.floorMod(i+1, width), Math.floorMod(j+1, height), c);
+                    } else if (Double.compare(val, NE_Sw) == 0) {
+                        l = mod.getComponent(Math.floorMod(i+1, width), Math.floorMod(j-1, height), c);
+                        r = mod.getComponent(Math.floorMod(i-1, width), Math.floorMod(j+1, height), c);
+                    }
+
+                    double npix = 0;
+                    if(pix > l && pix > r)
+                        npix = pix;
+                    ans.setComponent(i, j, c, npix);
+                }
+            }
+        }
+
+        return ans;
+    }
+
+    private static Image histeresisThreshold(Image img, double t1, double t2){
+        Image ans = new Image(img.width, img.height, img.encoding, true);
+
+        for(int i = 0; i < img.width; i++){
+            for(int j = 0; j < img.height; j++){
+                for(int c = 0; c < img.encoding.getBands(); c++){
+                    double val = img.getComponent(i, j, c);
+
+                    double res = 0;
+
+                    if(val >= t1 && val < t2){
+                        //If val is in between, check if connected to strong border
+                        for(int x = i - 1; x <= i + 1; x++){
+                            for(int y = j - 1; y <= j + 1; y++){
+                                if(x != i && y != j && img.getComponent(Math.floorMod(x, img.width), Math.floorMod(y, img.height), c) >= t2){
+                                    res = 1;
+                                    break;
+                                }
+                            }
+                        }
+                    } else if(val >= t2){
+                        //val is strong border
+                        res = 1;
+                    }
+                    ans.setComponent(i, j, c, res);
+                }
+            }
+        }
+        return ans;
+    }
+
+    public static Image intersection(Image i1, Image i2){
+        if(i1.width != i2.width || i1.height != i2.height || i1.encoding != i2.encoding || i1.encoding.equals(Encoding.HSV))
+            throw new IllegalArgumentException();
+
+        Image ans = new Image(i1.width, i1.height, i1.encoding, true);
+
+        for(int i = 0; i < i1.width; i++){
+            for(int j = 0; j < i1.height; j++){
+                for(int c = 0; c < i1.encoding.getBands(); c++){
+                    ans.setComponent(i, j, c, i1.getComponent(i, j, c)*i2.getComponent(i, j, c));
+                }
+            }
+        }
+
+        return ans;
     }
 
     private Image firstDerivativeContourEnhancement(double[][] MASK_DX, double[][] MASK_DY){
