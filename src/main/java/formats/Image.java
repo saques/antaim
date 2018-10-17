@@ -6,6 +6,7 @@ import interfaces.TriFunction;
 import lombok.Getter;
 import noise.NoiseApplyMode;
 import noise.NoiseGenerator;
+import sun.security.jgss.GSSCaller;
 import utils.MathUtils;
 
 import javax.imageio.ImageIO;
@@ -28,30 +29,10 @@ public class Image implements Cloneable{
     public static final int M = 0xFF;
     public static final double U = 1.0/M;
 
-    private static final double W_E = 0;
-    private static final double N_S = 90;
-    private static final double NW_SE = 135;
-    private static final double NE_Sw = 45;
-
     private static final TriFunction<Double, Double, Double, Double> linearAdjust = (c, min, max) -> (c - min)/(max-min);
     private static final BiFunction<Double, Double, Double> modulus = (x, y) -> Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
-    private static final BiFunction<Double, Double, Double> angle = (x, y) -> {
-        double ans = x != 0 ? Math.atan2(y, x) : 0;
-
-        double ansDeg = Math.toDegrees(ans);
-        ansDeg *= Math.signum(ansDeg);
-
-        if((ansDeg>= 0 && ansDeg < 22.5) || (ansDeg >= 157.5 && ansDeg <= 180))
-            ans = W_E;
-        else if (ansDeg >= 22.5 && ansDeg < 67.5)
-            ans = NE_Sw;
-        else if (ansDeg >= 67.5 && ansDeg < 112.5)
-            ans = N_S;
-        else
-            ans = NW_SE;
-
-        return ans;
-    };
+    private static final BiFunction<Double, Double, Double> sumOfModulus = (x, y) -> Math.abs(x) + Math.abs(y);
+    private static final BiFunction<Double, Double, Double> sum = (x, y) -> x + y ;
 
     private static int IDs = 0;
 
@@ -240,9 +221,9 @@ public class Image implements Cloneable{
                 for(int c = 0; c < i1.encoding.getBands(); c++){
                     double val = f.apply(i1.getComponent(i, j, c), i2.getComponent(i, j, c));
                     if(round)
-                        ans.setComponentNoRound(i, j, c, val);
-                    else
                         ans.setComponent(i, j, c, val);
+                    else
+                        ans.setComponentNoRound(i, j, c, val);
                 }
             }
         }
@@ -1054,11 +1035,13 @@ public class Image implements Cloneable{
         if(encoding.equals(Encoding.HSV))
             throw new IllegalArgumentException();
 
+        Image gs = toGS();
+
         /**
          * GAUSS FILTERS
          */
-        List<ImageMaxMin> gauss = convolution(gaussMask(3, 1, true),
-                                              gaussMask(5, 2, true));
+        List<ImageMaxMin> gauss = gs.convolution(gaussMask(3, 1, true),
+                                                 gaussMask(5, 2, true));
 
         Image gauss1 = gauss.get(0).image, gauss2 = gauss.get(1).image;
 
@@ -1080,8 +1063,8 @@ public class Image implements Cloneable{
         List<ImageMaxMin> gauss1sobel = gauss1.convolution(dx, dy);
         List<ImageMaxMin> gauss2sobel = gauss2.convolution(dx, dy);
 
-        Image gauss1sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss1sobel, width, height, encoding);
-        Image gauss2sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss2sobel, width, height, encoding);
+        Image gauss1sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss1sobel, width, height);
+        Image gauss2sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss2sobel, width, height);
 
         /**
          * HISTERESIS THRESHOLDING
@@ -1097,44 +1080,54 @@ public class Image implements Cloneable{
         return intersection(gauss1histTh, gauss2histTh);
     }
 
-    private static Image cannySobelModulusAngleNoMaxSuppr(List<ImageMaxMin> dxdy, int width, int height, Encoding encoding){
+    private static Image cannySobelModulusAngleNoMaxSuppr(List<ImageMaxMin> dxdy, int width, int height){
         ImageMaxMin dx = dxdy.get(0), dy = dxdy.get(1);
 
-        Image mod = new Image(width, height, encoding, true);
-        Image ang = new Image(width, height, encoding, true);
+        Image mod = new Image(width, height, Encoding.GS, true);
 
-        applyAndAdjust(dx.image, dy.image, mod, modulus, linearAdjust);
-        apply(dx.image, dy.image, ang, angle, false);
+        applyAndAdjust(dx.image, dy.image, mod, sumOfModulus, linearAdjust);
 
-        Image ans = new Image(width, height, encoding, true);
+        Image ans = new Image(width, height, Encoding.GS, true);
 
         for(int i = 0; i < width; i++){
             for(int j = 0; j < height; j++){
-                for(int c = 0; c < encoding.getBands(); c++){
-                    double val = ang.getComponent(i, j, c);
+                for(int c = 0; c < Encoding.GS.getBands(); c++){
+
+                    double x = dx.image.getComponent(i, j, c);
+                    double y = dy.image.getComponent(i, j, c);
+
+                    double ang =  (Math.toDegrees(x != 0 ? Math.atan(y/x) : Math.PI/2) + 180) % 180;
 
                     double pix = mod.getComponent(i, j, c);
 
-                    double l = 0, r = 0 ;
+                    double l, r;
 
-                    if(Double.compare(val, N_S) == 0){
-                        l = mod.getComponent(i, Math.floorMod(j-1, height), c);
-                        r = mod.getComponent(i, Math.floorMod(j+1, height), c);
-                    } else if (Double.compare(val, W_E) == 0){
+                    if(ang >= 67.5 && ang < 112.5){
                         l = mod.getComponent(Math.floorMod(i-1, width), j, c);
                         r = mod.getComponent(Math.floorMod(i+1, width), j, c);
-                    } else if (Double.compare(val, NW_SE) == 0) {
+                    } else if ((ang>= 0 && ang < 22.5) || (ang >= 157.5 && ang <= 180)){
+
+                        l = mod.getComponent(i, Math.floorMod(j-1, height), c);
+                        r = mod.getComponent(i, Math.floorMod(j+1, height), c);
+
+                    } else if (ang >= 22.5 && ang < 67.5) {
+
                         l = mod.getComponent(Math.floorMod(i-1, width), Math.floorMod(j-1, height), c);
                         r = mod.getComponent(Math.floorMod(i+1, width), Math.floorMod(j+1, height), c);
-                    } else if (Double.compare(val, NE_Sw) == 0) {
+
+                    } else {
+
                         l = mod.getComponent(Math.floorMod(i+1, width), Math.floorMod(j-1, height), c);
                         r = mod.getComponent(Math.floorMod(i-1, width), Math.floorMod(j+1, height), c);
+
                     }
 
                     double npix = 0;
-                    if(pix > l && pix > r)
+
+                    if(pix > 0 && pix >= l && pix >= r)
                         npix = pix;
-                    ans.setComponent(i, j, c, npix);
+
+                    ans.setComponentNoRound(i, j, c, npix);
                 }
             }
         }
@@ -1152,16 +1145,20 @@ public class Image implements Cloneable{
 
                     double res = 0;
 
+
                     if(val >= t1 && val < t2){
-                        //If val is in between, check if connected to strong border
+
                         for(int x = i - 1; x <= i + 1; x++){
                             for(int y = j - 1; y <= j + 1; y++){
+
                                 if(x != i && y != j && img.getComponent(Math.floorMod(x, img.width), Math.floorMod(y, img.height), c) >= t2){
                                     res = 1;
                                     break;
                                 }
+
                             }
                         }
+
                     } else if(val >= t2){
                         //val is strong border
                         res = 1;
@@ -1170,6 +1167,29 @@ public class Image implements Cloneable{
                 }
             }
         }
+
+
+        for(int i = 0; i < img.width; i++){
+            for(int j = 0; j < img.height; j++){
+                for(int c = 0; c < img.encoding.getBands(); c++){
+                    double val = img.getComponent(i, j, c);
+                    if(val >= t1 && val < t2) {
+
+                        for (int x = i - 1; x <= i + 1; x++) {
+                            for (int y = j - 1; y <= j + 1; y++) {
+
+                                if (x != i && y != j && ans.getComponent(Math.floorMod(x, img.width), Math.floorMod(y, img.height), c) >= t2) {
+                                    ans.setComponent(i, j, c, 1);
+                                    break;
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return ans;
     }
 

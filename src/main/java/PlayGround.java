@@ -13,7 +13,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        canny("images\\bricks.jpg", 0.0, 0.1);
+        canny("images\\pak fa.jpg", 0.01, 0.1);
     }
 
     /**
