@@ -1314,8 +1314,12 @@ public class Image implements Cloneable{
             }
             for(int c = 0; c < aux.encoding.getBands(); c++) {
                 for (int i = 0; i < n.length; i++) {
-                    if (1 - n[i] > 0.3) {
+                    if (Math.abs(0.65 - (1 - n[i])) < 0.1 ) {
                         ans.setComponent(i % aux.width, i / aux.width, c, MAX_D);
+                    }
+
+                    if (Math.abs(0.5 - (1 - n[i])) < 0.1 ) {
+                        ans.setComponent(i % aux.width, i / aux.width, c, 0.3);
                     }
                 }
             }
