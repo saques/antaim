@@ -1276,7 +1276,7 @@ public class Image implements Cloneable{
     }
 
 
-    public Image susanDetector( double t ){
+    public Image susanDetector( double t , Boolean overThisImage ){
             if( encoding.equals(Encoding.HSV) || t < 0 || t > 1)
                 throw new IllegalArgumentException();
 
@@ -1288,8 +1288,7 @@ public class Image implements Cloneable{
                     {0.0,1.0,1.0, 1.0, 1.0,1.0,0.0},
                     {0.0,0.0,1.0, 1.0, 1.0,0.0,0.0}};
 
-            Image aux = this.toGS();
-            Image ans = new Image(width, height, Encoding.GS, true);
+            Image aux = this.clone();
 
             double[] n = new double[width*height];
             int d = 3;
@@ -1297,35 +1296,63 @@ public class Image implements Cloneable{
             for(int i = 0; i < aux.width; i++){
                 for(int j = 0; j < aux.height; j++){
                     pixels = 0.0;
-                    for(int c = 0; c < aux.encoding.getBands(); c++) {
                         for (int x = i - 3; x <= i + 3; x++) {
                             for (int y = j - 3; y <= j + 3; y++) {
                                 if (MASK[x - i + d][y - j + d] != 0.0 && !aux.isOutOfBounds(x,y)  ){
                                     pixels++;
-                                    if ( Math.abs(aux.getComponent(x,y,c) - aux.getComponent(i,j,c)) < t)
+                                    if ( Math.abs(aux.getModule(x,y) - aux.getModule(i,j)) < t)
                                         n[i + j*width]++;
 
                                 }
                             }
                         }
-                    }
                     n[i + j*width] /= pixels;
                 }
             }
-            for(int c = 0; c < aux.encoding.getBands(); c++) {
+            if (!overThisImage){
+                Image ans = new Image(width, height, Encoding.GS, true);
                 for (int i = 0; i < n.length; i++) {
                     if (Math.abs(0.65 - (1 - n[i])) < 0.1 ) {
-                        ans.setComponent(i % aux.width, i / aux.width, c, MAX_D);
+                        ans.setComponent(i % ans.width, i / ans.width, 0, MAX_D);
                     }
 
                     if (Math.abs(0.5 - (1 - n[i])) < 0.1 ) {
-                        ans.setComponent(i % aux.width, i / aux.width, c, 0.3);
+                        ans.setComponent(i % ans.width, i / ans.width, 0, 0.3);
+                    }
+                }
+                aux = ans;
+            } else {
+                for (int i = 0; i < n.length; i++) {
+                    if (Math.abs(0.65 - (1 - n[i])) < 0.1 ) {
+                        aux.setComponent(i % aux.width, i / aux.width, 0, MAX_D);
+                        if (encoding.getBands() > 1) {
+                            aux.setComponent(i % aux.width, i / aux.width, 1, 0);
+                            aux.setComponent(i % aux.width, i / aux.width, 2, 0);
+                        }
+
+                    }
+
+                    if (Math.abs(0.5 - (1 - n[i])) < 0.1 ) {
+                        aux.setComponent(i % aux.width, i / aux.width, 0, 0.3);
+                        if (encoding.getBands() > 1) {
+                            aux.setComponent(i % aux.width, i / aux.width, 1, 0.8);
+                            aux.setComponent(i % aux.width, i / aux.width, 2, 0.8);
+                        }
                     }
                 }
             }
-            return ans;
+
+
+            return aux;
     }
 
+    public double getModule(int x, int y) {
+        double ans = 0;
+        for (int c = 0; c < encoding.getBands(); c++) {
+            ans += Math.pow(getComponent(x,y,c),2);
+        }
+        return Math.sqrt(ans);
+    }
 
 
 

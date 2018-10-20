@@ -13,7 +13,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        susan("images\\download.png");
+        susanNewImage("images\\TEST.PNG");
     }
 
     /**
@@ -61,7 +61,13 @@ public final class PlayGround {
     public static void susan(String file) throws IOException{
         //Image img = new Pgm("images/TEST.PGM");
         Image img = new Image(file);
-        ImageIO.write(img.susanDetector(27.0/255.0).toBufferedImage(), "png", new File("images\\susanita.png"));
+        ImageIO.write(img.susanDetector(27.0/255.0,true).toBufferedImage(), "png", new File("images\\susanita.png"));
+
+    }
+    public static void susanNewImage(String file) throws IOException{
+        //Image img = new Pgm("images/TEST.PGM");
+        Image img = new Image(file);
+        ImageIO.write(img.susanDetector(27.0/255.0,false).toBufferedImage(), "png", new File("images\\susanita.png"));
 
     }
     public static void weightedMedianFilter() throws IOException{

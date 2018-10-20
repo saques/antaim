@@ -379,7 +379,14 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.sobel(), stage, root);
         });
-        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel);
+        MenuItem susan = new MenuItem("Susan on current image");
+        susan.setOnAction(e-> {susan(stage,root,true);});
+
+        MenuItem susanNewImage = new MenuItem("Susan on new image");
+        susanNewImage.setOnAction(e-> {susan(stage,root,false);});
+
+
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel,susan,susanNewImage);
 
         /**
          *
@@ -1454,6 +1461,69 @@ public class Main extends Application {
                 ImageDrawingUtils.drawCircle(image,x,y,radius, (j, k) -> new double[]{R,G,B});
 
                 renderStackTop(stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid dimensions, try again");
+            }
+            newWindow.close();
+        });
+
+    }
+
+    private void susan(Stage stage, BorderPane root,boolean overImage){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text tLabel = new Text("t");
+
+        TextField tField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(tLabel, 0, 0);
+        gridPane.add(tField, 1, 0);
+        gridPane.add(submit, 0, 1);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        tLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Susan detector");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Integer t = Integer.valueOf(tField.getText());
+
+
+                if(t < 0 || t > 255) {
+                    throw new Exception();
+                }
+
+                formats.Image image = stack.pop();
+
+                pushAndRender(image.susanDetector(t/255.0,overImage), stage, root);
 
             } catch (Exception e) {
                 showErrorModal(stage,"Invalid dimensions, try again");
