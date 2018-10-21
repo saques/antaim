@@ -13,17 +13,36 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        testLinLoutInit();
+        testActiveContoursCircle();
     }
 
     /**
      * Try me
      */
 
+    public static void testActiveContoursSquare() throws IOException{
+        Image image = new Image(200,200, Encoding.RGB, true);
+        ImageDrawingUtils.drawRectangle(image, 50,50, 150, 150, (x, y) -> new double[]{1,1,1});
+        RegionFeatures features = RegionFeatures.buildRegionFeatures(image, 75,75,125,125);
+        image.activeContours(features);
+        ImageDrawingUtils.drawLinLout(image, features);
+        ImageIO.write(image.toBufferedImage(), "bmp", new File("images\\testActiveContoursSquare.BMP"));
+    }
+
+    public static void testActiveContoursCircle() throws IOException{
+        Image image = new Image(200,200, Encoding.GS, true);
+        ImageDrawingUtils.drawCircle(image, 100,100,50, (x, y) -> new double[]{1,1,1});
+        RegionFeatures features = RegionFeatures.buildRegionFeatures(image, 60,60,140,140);
+        image.activeContours(features);
+        ImageDrawingUtils.drawLinLout(image, features);
+        ImageIO.write(image.toBufferedImage(), "bmp", new File("images\\testActiveContoursCircle.BMP"));
+    }
+
 
     public static void testLinLoutInit() throws IOException{
         Image image = new Image(200,200, Encoding.RGB, true);
-        RegionFeatures features = RegionFeatures.buildRegionFeatures(image, 50,50,150,150);
+        ImageDrawingUtils.drawRectangle(image, 50,50, 150, 150, (x, y) -> new double[]{1,1,1});
+        RegionFeatures features = RegionFeatures.buildRegionFeatures(image, 75,75,125,125);
         ImageDrawingUtils.drawLinLout(image, features);
         ImageIO.write(image.toBufferedImage(), "bmp", new File("images\\testLinLout.BMP"));
     }

@@ -17,28 +17,39 @@ public class RegionFeatures {
         ans.width = img.getWidth();
         ans.height = img.getHeight();
         ans.phi = new int[img.getWidth() * img.getHeight()];
-        ans.avg = 0;
+        ans.objAvg = ans.backAvg = 0;
         ans.lin = new HashSet<>();
         ans.lout = new HashSet<>();
 
-        int count = 0;
+        int objCount = 0, backCount = 0;
+
         for(int i = 0; i < ans.width; i++){
             for(int j = 0; j < ans.height; j++){
 
                 if(i < x0-1 || i > x1+1 || j < y0-1 || j > y1+1){
                     //Outside of image
                     ans.setPhi(i, j, 3);
-                } else if(i > x0 && i < x1 && j > y0 && j < y1){
-                    //inside of object
-                    ans.setPhi(i, j, -3);
-                    count ++;
+
+                    backCount ++;
 
                     double colour = 0;
                     for(int c = 0; c < img.getEncoding().getBands(); c++)
                         colour += Math.pow(img.getComponent(i, j, c), 2);
                     colour = Math.sqrt(colour);
 
-                    ans.avg += colour;
+                    ans.backAvg += colour;
+
+                } else if(i > x0 && i < x1 && j > y0 && j < y1){
+                    //inside of object
+                    ans.setPhi(i, j, -3);
+                    objCount ++;
+
+                    double colour = 0;
+                    for(int c = 0; c < img.getEncoding().getBands(); c++)
+                        colour += Math.pow(img.getComponent(i, j, c), 2);
+                    colour = Math.sqrt(colour);
+
+                    ans.objAvg += colour;
 
                 } else if((i == x0 && j >= y0 && j <= y1) || (i == x1 && j >= y0 && j <= y1) ||
                           (j == y0 && i >= x0 && i <= x1) || (j == y1 && i >= x0 && i <= x1 )){
@@ -55,13 +66,14 @@ public class RegionFeatures {
 
             }
         }
-        ans.avg /= count;
+        ans.objAvg /= objCount;
+        ans.backAvg /= backCount;
         return ans;
     }
 
 
     private int[] phi;
-    private double avg;
+    private double objAvg, backAvg;
     private int width, height;
     private Set<int[]> lin, lout;
 
@@ -77,7 +89,7 @@ public class RegionFeatures {
         phi[x + y*width] = val;
     }
 
-    private boolean isOutOfBounds(int x, int y){
+    public boolean isOutOfBounds(int x, int y){
         return x < 0 || y < 0 || x >= width || y >= height;
     }
 

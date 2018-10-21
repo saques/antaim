@@ -3,11 +3,9 @@ package formats;
 
 import formats.exceptions.NoSuchComponentException;
 import interfaces.TriFunction;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import noise.NoiseApplyMode;
 import noise.NoiseGenerator;
-import sun.security.jgss.GSSCaller;
 import utils.MathUtils;
 
 import javax.imageio.ImageIO;
@@ -1557,6 +1555,203 @@ public class Image implements Cloneable{
     /*
     BEGIN ACTIVE CONTOURS
      */
+
+
+    public void activeContours(RegionFeatures features){
+
+        int maxIters = width*height;
+
+        boolean allLoutOk = false, allLinOk = false;
+        while (maxIters > 0 && !(allLinOk && allLoutOk)){
+            allLoutOk = allLinOk = true;
+
+            int x, y;
+
+            /**
+             * SECOND STEP
+             */
+
+            Set<int[]> addToLout = new HashSet<>();
+            for (Iterator<int[]> it = features.getLout().iterator(); it.hasNext();) {
+                int[] ints = it.next();
+                x = ints[0]; y = ints[1];
+
+                assert (features.phi(x, y) == 1);
+
+                if(Fd(x, y, features.getObjAvg(), features.getBackAvg()) > 0){
+
+                    it.remove();
+                    features.getLin().add(ints);
+                    features.setPhi(x, y, -1);
+
+                    for(int i = x-1; i <= x+1; i++){
+                        for(int j = y-1; j <= y+1; j++){
+                            if(i != x && j != y && !features.isOutOfBounds(i, j) && features.phi(i, j) == 3){
+                                addToLout.add(new int[]{i, j});
+
+                                //TODO: Check if need to update separatedly
+                                features.setPhi(i, j, 1);
+                            }
+                        }
+                    }
+
+                }
+
+            }
+            features.getLout().addAll(addToLout);
+
+
+            /**
+             * THIRD STEP
+             */
+            for (Iterator<int[]> it = features.getLin().iterator(); it.hasNext();) {
+                int[] ints = it.next();
+                x = ints[0]; y = ints[1];
+
+
+                assert (features.phi(x, y) == -1);
+
+                /*
+                if(!features.isOutOfBounds(x, y-1) && features.phi(x, y-1) > 0)
+                    continue;
+
+                if(!features.isOutOfBounds(x, y+1) && features.phi(x, y+1) > 0)
+                    continue;
+
+                if(!features.isOutOfBounds(x-1, y) && features.phi(x-1, y) > 0)
+                    continue;
+
+                if(!features.isOutOfBounds(x+1, y) && features.phi(x+1, y) > 0)
+                    continue;
+
+                it.remove();
+                features.setPhi(x, y, -3);
+                */
+
+                boolean validLin = false;
+                for(int i = x-1; i <= x+1 && !validLin; i++){
+                    for(int j = y-1; j <= y+1; j++){
+                        if(i != x && j != y && !features.isOutOfBounds(i, j) && features.phi(i, j) > 0){
+                            validLin = true;
+                            break;
+                        }
+                    }
+                }
+                if(!validLin) {
+                    //All negative, x is interior now
+                    it.remove();
+                    features.setPhi(x, y, -3);
+                }
+
+            }
+
+            /**
+             * FOURTH STEP
+             */
+
+            Set<int[]> addToLin = new HashSet<>();
+            for (Iterator<int[]> it = features.getLin().iterator(); it.hasNext();) {
+                int[] ints = it.next();
+                x = ints[0]; y = ints[1];
+
+                assert (features.phi(x, y) == -1);
+
+                if(Fd(x, y, features.getObjAvg(), features.getBackAvg()) < 0){
+
+                    it.remove();
+                    features.getLout().add(ints);
+                    features.setPhi(x, y, 1);
+
+                    for(int i = x-1; i <= x+1; i++){
+                        for(int j = y-1; j <= y+1; j++){
+                            if(i != x && j != y && !features.isOutOfBounds(i, j) && features.phi(i, j) == -3){
+                                addToLin.add(new int[]{i, j});
+
+                                //TODO: Check if need to update separatedly
+                                features.setPhi(i, j, -1);
+
+                            }
+                        }
+                    }
+
+                }
+            }
+            features.getLin().addAll(addToLin);
+
+            /**
+             *  FIFTH STEP
+             */
+
+
+            for (Iterator<int[]> it = features.getLout().iterator(); it.hasNext();) {
+                int[] ints = it.next();
+                x = ints[0]; y = ints[1];
+
+                assert (features.phi(x, y) == 1);
+
+                /*
+                if(!features.isOutOfBounds(x, y-1) && features.phi(x, y-1) < 0)
+                    continue;
+
+                if(!features.isOutOfBounds(x, y+1) && features.phi(x, y+1) < 0)
+                    continue;
+
+                if(!features.isOutOfBounds(x-1, y) && features.phi(x-1, y) < 0)
+                    continue;
+
+                if(!features.isOutOfBounds(x+1, y) && features.phi(x+1, y) < 0)
+                    continue;
+
+                it.remove();
+                features.setPhi(x, y, 3);
+                */
+
+                boolean validLout = false;
+                for(int i = x-1; i <= x+1 && !validLout; i++){
+                    for(int j = y-1; j <= y+1; j++){
+                        if(i != x && j != y && !features.isOutOfBounds(i, j) && features.phi(i, j) < 0){
+                            validLout = true;
+                            break;
+                        }
+                    }
+                }
+                if(!validLout) {
+                    //All negative, x is exterior now
+                    it.remove();
+                    features.setPhi(x, y, 3);
+                }
+
+            }
+
+            /**
+             * CHECK CONDITIONS
+             */
+
+            if(!features.getLin().stream().allMatch(ints-> Fd(ints[0], ints[1], features.getObjAvg(), features.getBackAvg()) >= 0))
+                allLinOk = false;
+
+            if(!features.getLout().stream().allMatch(ints-> Fd(ints[0], ints[1], features.getObjAvg(), features.getBackAvg()) <= 0))
+                allLoutOk = false;
+
+            maxIters--;
+        }
+
+    }
+
+    private double Fd(int x, int y, double thetaObj, double thetaBack){
+        double thetaPix = 0;
+
+        for(int c = 0; c < encoding.getBands(); c++)
+            thetaPix += Math.pow(getComponent(x, y, c), 2);
+        thetaPix = Math.sqrt(thetaPix);
+
+        if(Double.compare(0, Math.abs(thetaObj - thetaPix)) == 0)
+            return 0;
+
+        double div = Math.abs(thetaBack - thetaPix)/Math.abs(thetaObj - thetaPix);
+
+        return div < 1 ? -1 : div > 1 ? 1 : 0;
+    }
 
 
 
