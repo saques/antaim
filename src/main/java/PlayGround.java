@@ -13,12 +13,20 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        canny("images\\pak fa.jpg", 0.01, 0.1);
+        testLinLoutInit();
     }
 
     /**
      * Try me
      */
+
+
+    public static void testLinLoutInit() throws IOException{
+        Image image = new Image(200,200, Encoding.RGB, true);
+        RegionFeatures features = RegionFeatures.buildRegionFeatures(image, 50,50,150,150);
+        ImageDrawingUtils.drawLinLout(image, features);
+        ImageIO.write(image.toBufferedImage(), "bmp", new File("images\\testLinLout.BMP"));
+    }
 
     public static void canny(String file, double t1, double t2) throws IOException{
         Image img = new Image(file);

@@ -3,6 +3,7 @@ package formats;
 
 import formats.exceptions.NoSuchComponentException;
 import interfaces.TriFunction;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import noise.NoiseApplyMode;
 import noise.NoiseGenerator;
@@ -1545,7 +1546,7 @@ public class Image implements Cloneable{
             return aux;
     }
 
-    public double getModule(int x, int y) {
+    private double getModule(int x, int y) {
         double ans = 0;
         for (int c = 0; c < encoding.getBands(); c++) {
             ans += Math.pow(getComponent(x,y,c),2);
@@ -1553,7 +1554,15 @@ public class Image implements Cloneable{
         return Math.sqrt(ans);
     }
 
+    /*
+    BEGIN ACTIVE CONTOURS
+     */
 
+
+
+    /*
+    END ACTIVE CONTOURS
+     */
 
     public Image copy(int x1, int y1, int x2, int y2){
         if(isOutOfBounds(x1, y1) || isOutOfBounds(x2, y2))

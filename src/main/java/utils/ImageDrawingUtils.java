@@ -2,6 +2,7 @@ package utils;
 
 import formats.Encoding;
 import formats.Image;
+import formats.RegionFeatures;
 
 public final class ImageDrawingUtils {
 
@@ -83,6 +84,18 @@ public final class ImageDrawingUtils {
         for(int x = x1; x < x2; x++)
             for(int y = y1; y < y2; y++)
                 image.setComponentsRGB(x, y, gradientColour.compute(x, y));
+        return image;
+    }
+
+    public static Image drawLinLout(Image image, RegionFeatures features){
+        if(image.getEncoding() != Encoding.RGB)
+            image.toRGB();
+
+        //lout blue
+        features.getLout().forEach(x-> image.setComponents(x[0], x[1], new double[]{0, 0, 1}));
+        //lin red
+        features.getLin().forEach(x-> image.setComponents(x[0], x[1], new double[]{1, 0, 0}));
+
         return image;
     }
 
