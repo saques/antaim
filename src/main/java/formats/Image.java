@@ -1,6 +1,7 @@
 package formats;
 
 
+import com.sun.imageio.plugins.common.BitFile;
 import formats.exceptions.NoSuchComponentException;
 import interfaces.TriFunction;
 import lombok.Getter;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class Image implements Cloneable{
 
@@ -1559,7 +1561,30 @@ public class Image implements Cloneable{
 
     public void activeContours(RegionFeatures features){
 
-        int maxIters = width*height;
+        final int n = 5;
+        final int d = n/2;
+
+        ConvolutionParameters gauss = gaussMask(n, 1, false);
+        Predicate<Double> p1 = x -> x > 0;
+        Predicate<Double> p2 = x -> x < 0;
+
+
+        activeContours(features, Math.max(width, height), p1, p2, (x, y) -> Fd(x, y, features.getObjAvg(), features.getBackAvg()));
+
+        activeContours(features,  Math.max(width, height), p2, p1, (x, y) -> {
+            double accum = 0;
+            for(int i = x-d; i <= x+d; i++){
+                for(int j = y-d; j <= y+d; j++){
+                    accum += gauss.mask[i - x + d][j - y + d] * features.phi(Math.floorMod(i, width), Math.floorMod(j, height));
+                }
+            }
+            accum /= gauss.divisor;
+            return accum;
+        });
+
+    }
+
+    private void activeContours(RegionFeatures features, int maxIters, Predicate<Double> pLout, Predicate<Double> pLin, BiFunction<Integer, Integer, Double> F){
 
         boolean allLoutOk = false, allLinOk = false;
         while (maxIters > 0 && !(allLinOk && allLoutOk)){
@@ -1578,7 +1603,8 @@ public class Image implements Cloneable{
 
                 assert (features.phi(x, y) == 1);
 
-                if(Fd(x, y, features.getObjAvg(), features.getBackAvg()) > 0){
+                if(pLout.test(F.apply(x, y))){
+                    allLoutOk = false;
 
                     it.remove();
                     features.getLin().add(ints);
@@ -1611,23 +1637,6 @@ public class Image implements Cloneable{
 
                 assert (features.phi(x, y) == -1);
 
-                /*
-                if(!features.isOutOfBounds(x, y-1) && features.phi(x, y-1) > 0)
-                    continue;
-
-                if(!features.isOutOfBounds(x, y+1) && features.phi(x, y+1) > 0)
-                    continue;
-
-                if(!features.isOutOfBounds(x-1, y) && features.phi(x-1, y) > 0)
-                    continue;
-
-                if(!features.isOutOfBounds(x+1, y) && features.phi(x+1, y) > 0)
-                    continue;
-
-                it.remove();
-                features.setPhi(x, y, -3);
-                */
-
                 boolean validLin = false;
                 for(int i = x-1; i <= x+1 && !validLin; i++){
                     for(int j = y-1; j <= y+1; j++){
@@ -1656,7 +1665,8 @@ public class Image implements Cloneable{
 
                 assert (features.phi(x, y) == -1);
 
-                if(Fd(x, y, features.getObjAvg(), features.getBackAvg()) < 0){
+                if(pLin.test(F.apply(x, y))){
+                    allLinOk = false;
 
                     it.remove();
                     features.getLout().add(ints);
@@ -1689,23 +1699,6 @@ public class Image implements Cloneable{
 
                 assert (features.phi(x, y) == 1);
 
-                /*
-                if(!features.isOutOfBounds(x, y-1) && features.phi(x, y-1) < 0)
-                    continue;
-
-                if(!features.isOutOfBounds(x, y+1) && features.phi(x, y+1) < 0)
-                    continue;
-
-                if(!features.isOutOfBounds(x-1, y) && features.phi(x-1, y) < 0)
-                    continue;
-
-                if(!features.isOutOfBounds(x+1, y) && features.phi(x+1, y) < 0)
-                    continue;
-
-                it.remove();
-                features.setPhi(x, y, 3);
-                */
-
                 boolean validLout = false;
                 for(int i = x-1; i <= x+1 && !validLout; i++){
                     for(int j = y-1; j <= y+1; j++){
@@ -1723,16 +1716,6 @@ public class Image implements Cloneable{
 
             }
 
-            /**
-             * CHECK CONDITIONS
-             */
-
-            if(!features.getLin().stream().allMatch(ints-> Fd(ints[0], ints[1], features.getObjAvg(), features.getBackAvg()) >= 0))
-                allLinOk = false;
-
-            if(!features.getLout().stream().allMatch(ints-> Fd(ints[0], ints[1], features.getObjAvg(), features.getBackAvg()) <= 0))
-                allLoutOk = false;
-
             maxIters--;
         }
 
@@ -1744,6 +1727,7 @@ public class Image implements Cloneable{
         for(int c = 0; c < encoding.getBands(); c++)
             thetaPix += Math.pow(getComponent(x, y, c), 2);
         thetaPix = Math.sqrt(thetaPix);
+
 
         if(Double.compare(0, Math.abs(thetaObj - thetaPix)) == 0)
             return 0;
