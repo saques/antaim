@@ -1086,7 +1086,9 @@ public class Image implements Cloneable{
 
         Image mod = new Image(width, height, Encoding.GS, true);
 
-        applyAndAdjust(dx.image, dy.image, mod, sumOfModulus, linearAdjust);
+        applyAndAdjust(dx.image, dy.image, mod, modulus, linearAdjust);
+
+        mod = mod.dynamicRangeCompression();
 
         Image ans = new Image(width, height, Encoding.GS, true);
 
@@ -1097,30 +1099,25 @@ public class Image implements Cloneable{
                     double x = dx.image.getComponent(i, j, c);
                     double y = dy.image.getComponent(i, j, c);
 
-                    double ang =  (Math.toDegrees(x != 0 ? Math.atan(y/x) : Math.PI/2) + 180) % 180;
+
+                    double ang =  (Math.toDegrees(y != 0 ? Math.atan(x/y) : Math.PI/2) + 180) % 180;
 
                     double pix = mod.getComponent(i, j, c);
 
                     double l, r;
 
                     if(ang >= 67.5 && ang < 112.5){
-                        l = mod.getComponent(Math.floorMod(i-1, width), j, c);
-                        r = mod.getComponent(Math.floorMod(i+1, width), j, c);
-                    } else if ((ang>= 0 && ang < 22.5) || (ang >= 157.5 && ang <= 180)){
-
                         l = mod.getComponent(i, Math.floorMod(j-1, height), c);
                         r = mod.getComponent(i, Math.floorMod(j+1, height), c);
-
+                    } else if ((ang>= 0 && ang < 22.5) || (ang >= 157.5 && ang <= 180)){
+                        l = mod.getComponent(Math.floorMod(i-1, width), j, c);
+                        r = mod.getComponent(Math.floorMod(i+1, width), j, c);
                     } else if (ang >= 22.5 && ang < 67.5) {
-
                         l = mod.getComponent(Math.floorMod(i-1, width), Math.floorMod(j-1, height), c);
                         r = mod.getComponent(Math.floorMod(i+1, width), Math.floorMod(j+1, height), c);
-
                     } else {
-
                         l = mod.getComponent(Math.floorMod(i+1, width), Math.floorMod(j-1, height), c);
                         r = mod.getComponent(Math.floorMod(i-1, width), Math.floorMod(j+1, height), c);
-
                     }
 
                     double npix = 0;
@@ -1128,7 +1125,7 @@ public class Image implements Cloneable{
                     if(pix > 0 && pix >= l && pix >= r)
                         npix = pix;
 
-                    ans.setComponentNoRound(i, j, c, npix);
+                    ans.setComponent(i, j, c, npix);
                 }
             }
         }
@@ -1146,25 +1143,12 @@ public class Image implements Cloneable{
 
                     double res = 0;
 
-
-                    if(val >= t1 && val < t2){
-
-                        for(int x = i - 1; x <= i + 1; x++){
-                            for(int y = j - 1; y <= j + 1; y++){
-
-                                if(x != i && y != j && img.getComponent(Math.floorMod(x, img.width), Math.floorMod(y, img.height), c) >= t2){
-                                    res = 1;
-                                    break;
-                                }
-
-                            }
-                        }
-
-                    } else if(val >= t2){
+                    if(val >= t2){
                         //val is strong border
                         res = 1;
                     }
                     ans.setComponent(i, j, c, res);
+
                 }
             }
         }
@@ -1179,7 +1163,7 @@ public class Image implements Cloneable{
                         for (int x = i - 1; x <= i + 1; x++) {
                             for (int y = j - 1; y <= j + 1; y++) {
 
-                                if (x != i && y != j && ans.getComponent(Math.floorMod(x, img.width), Math.floorMod(y, img.height), c) >= t2) {
+                                if (x != i && y != j && !ans.isOutOfBounds(x, y) && ans.getComponent(x, y, c) >= t2) {
                                     ans.setComponent(i, j, c, 1);
                                     break;
                                 }

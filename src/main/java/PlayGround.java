@@ -13,7 +13,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        testActiveContoursCircle();
+        canny("images\\220200_screenshots_20180205200432_1.jpg", 0.3, 0.5);
     }
 
     /**
