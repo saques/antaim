@@ -376,6 +376,12 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.sobel(), stage, root);
         });
+        MenuItem canny = new MenuItem("Canny");
+        canny.setOnAction(e -> canny(stage, root));
+
+        MenuItem cannyDif = new MenuItem("Diffusion and Canny");
+        cannyDif.setOnAction(e -> cannyIso(stage, root));
+
         MenuItem susan = new MenuItem("Susan on current image");
         susan.setOnAction(e-> {susan(stage,root,true);});
 
@@ -385,7 +391,7 @@ public class Main extends Application {
         MenuItem activeContours = new MenuItem("Active contours");
         activeContours.setOnAction(e -> activeContours(stage, root));
 
-        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, susan, susanNewImage, activeContours);
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, cannyDif, susan, susanNewImage, activeContours);
 
         /**
          *
@@ -2342,6 +2348,193 @@ public class Main extends Application {
 
         newWindow.show();
 
+    }
+
+
+    private void canny(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text t1Label = new Text("t1");
+        Text t2Label = new Text("t2");
+
+        TextField t1Field = new TextField();
+        TextField t2Field = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(t1Label, 0, 0);
+        gridPane.add(t1Field, 1, 0);
+        gridPane.add(t2Label, 0, 1);
+        gridPane.add(t2Field, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        t1Label.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        t2Label.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Canny settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double t1 = Double.valueOf(t1Field.getText());
+
+                Double t2 = Double.valueOf(t2Field.getText());
+
+                if(t1 >= t2)
+                    throw new Exception();
+
+                formats.Image image = stack.pop().canny(t1, t2);
+
+                pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid threshold value, try again");
+            }
+            newWindow.close();
+        });
+    }
+
+    private void cannyIso(Stage stage, BorderPane root){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text t1Label = new Text("t1");
+        Text t2Label = new Text("t2");
+
+        TextField t1Field = new TextField();
+        TextField t2Field = new TextField();
+
+        Text detectorLabel = new Text("Detector");
+        ChoiceBox detectorChoice = new ChoiceBox(FXCollections.observableArrayList("Leclerc", "Lorentz", "Isotropic"));
+
+        Text TLabel = new Text("Iterations");
+        TextField TField = new TextField();
+
+        Text SLabel = new Text("Sigma");
+        TextField SField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(t1Label, 0, 0);
+        gridPane.add(t1Field, 1, 0);
+        gridPane.add(t2Label, 0, 1);
+        gridPane.add(t2Field, 1, 1);
+        gridPane.add(detectorLabel, 0, 2);
+        gridPane.add(detectorChoice, 1, 2);
+        gridPane.add(TLabel, 0, 3);
+        gridPane.add(TField, 1, 3);
+        gridPane.add(SLabel, 0, 4);
+        gridPane.add(SField, 1, 4);
+        gridPane.add(submit, 0, 5);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        t1Label.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        t2Label.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        detectorLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        TLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        SLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Canny settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double t1 = Double.valueOf(t1Field.getText());
+
+                Double t2 = Double.valueOf(t2Field.getText());
+
+                if(t1 >= t2)
+                    throw new Exception();
+
+
+                Integer index = detectorChoice.getSelectionModel().getSelectedIndex();
+
+
+                formats.Image.DiffusionBorderDetector detector = null;
+
+                switch (index){
+                    case 0:
+                        detector = formats.Image.DiffusionBorderDetector.LECLERC;
+                        break;
+                    case 1:
+                        detector = formats.Image.DiffusionBorderDetector.LORENTZ;
+                        break;
+                    case 2:
+                        detector = formats.Image.DiffusionBorderDetector.ISOTROPIC;
+                        break;
+                    default:
+                        showErrorModal(stage,"Please select a valid detector");
+                        return;
+
+                }
+
+                Integer t = Integer.valueOf(TField.getText());
+                Double s = Double.valueOf(SField.getText());
+
+                if (t <= 0){
+                    showErrorModal(stage,"Invalid number of iterations");
+                    return;
+                }
+
+                formats.Image image = stack.pop().diffusion(t, s, detector).canny(t1, t2);
+
+                pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid threshold value, try again");
+            }
+            newWindow.close();
+        });
     }
 
 
