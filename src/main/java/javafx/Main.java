@@ -1,6 +1,9 @@
 package javafx;
 
 import formats.*;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
@@ -25,14 +28,21 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.*;
 import javafx.scene.image.Image;
+import javafx.util.Duration;
 import noise.*;
 import structures.LinkedListPeekAheadStack;
 import structures.PeekAheadStack;
 import utils.ImageDrawingUtils;
 import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class Main extends Application {
 
@@ -376,22 +386,55 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.sobel(), stage, root);
         });
-        MenuItem canny = new MenuItem("Canny");
-        canny.setOnAction(e -> canny(stage, root));
 
-        MenuItem cannyDif = new MenuItem("Diffusion and Canny");
+        Menu canny = new Menu("Canny");
+
+        MenuItem standardCanny = new MenuItem("Standard");
+        standardCanny.setOnAction(e -> canny(stage, root));
+
+        MenuItem cannyDif = new MenuItem("Anisotropic Diffusion");
         cannyDif.setOnAction(e -> cannyIso(stage, root));
 
-        MenuItem susan = new MenuItem("Susan on current image");
-        susan.setOnAction(e-> {susan(stage,root,true);});
+        canny.getItems().addAll(standardCanny, cannyDif);
 
-        MenuItem susanNewImage = new MenuItem("Susan on new image");
-        susanNewImage.setOnAction(e-> {susan(stage,root,false);});
+        Menu susan = new Menu("SUSAN");
 
-        MenuItem activeContours = new MenuItem("Active contours");
-        activeContours.setOnAction(e -> activeContours(stage, root));
+        MenuItem susanCurrent = new MenuItem("SUSAN on current image");
+        susanCurrent.setOnAction(e-> susan(stage,root,true));
 
-        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, cannyDif, susan, susanNewImage, activeContours);
+        MenuItem susanNewImage = new MenuItem("SUSAN on new image");
+        susanNewImage.setOnAction(e-> susan(stage,root,false));
+
+        susan.getItems().addAll(susanCurrent, susanNewImage);
+
+        Menu activeContours = new Menu("Active contours");
+
+        MenuItem oneImageAC = new MenuItem("Image");
+        oneImageAC.setOnAction(e -> activeContours(stage, root));
+
+        Menu videoAC = new Menu("Video");
+
+        MenuItem videoACStandard = new MenuItem("Standard");
+        videoACStandard.setOnAction(e -> activeContoursVideo(stage, root, (i, features) -> {
+            i.activeContours(features);
+            ImageDrawingUtils.drawLinLout(i, features);
+            return i.toBufferedImage();
+        }, x -> x));
+
+        MenuItem videoACDynamicRange = new MenuItem("Dynamic Range");
+        videoACDynamicRange.setOnAction(e -> activeContoursVideo(stage, root, (i, features) -> {
+            i.dynamicRangeCompression().activeContours(features);
+            ImageDrawingUtils.drawLinLout(i, features);
+            return i.toBufferedImage();
+        }, formats.Image::dynamicRangeCompression));
+
+        videoAC.getItems().addAll(videoACStandard, videoACDynamicRange);
+
+
+
+        activeContours.getItems().addAll(oneImageAC, videoAC);
+
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, susan, activeContours);
 
         /**
          *
@@ -2536,6 +2579,160 @@ public class Main extends Application {
             newWindow.close();
         });
     }
+
+
+    private void activeContoursVideo(Stage stage, BorderPane root, BiFunction<formats.Image, RegionFeatures, BufferedImage> f, Function<formats.Image, formats.Image> regionF){
+        List<File> files = fileChooser.showOpenMultipleDialog(stage);
+
+        if(files == null){
+            showErrorModal(stage, "No images selected");
+            return;
+        }
+
+        List<formats.Image> images = new ArrayList<>(files.size());
+
+        files.forEach(x -> {
+            try {
+                images.add(new formats.Image(x.toString()));
+            } catch (Exception e) {
+            }
+        });
+
+        Stage newWindow = new Stage();
+
+
+        formats.Image image = images.get(0);
+
+        ImageView iv = new ImageView(SwingFXUtils.toFXImage(image.toBufferedImage(), null));
+
+
+        BorderPane bo = new BorderPane(iv);
+        bo.setMaxWidth(image.getWidth()); bo.setMaxHeight(image.getHeight());
+        ScrollPane scrollPane = new ScrollPane(bo);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+
+        final Rectangle selection = new Rectangle();
+        final Light.Point anchor = new Light.Point();
+
+        iv.setOnMousePressed(event -> {
+            anchor.setX(event.getX());
+            anchor.setY(event.getY());
+            selection.setX(event.getX());
+            selection.setY(event.getY());
+            selection.setFill(null); // transparent
+            selection.setStroke(Color.BLACK); // border
+            selection.getStrokeDashArray().add(10.0);
+            bo.getChildren().add(selection);
+        });
+
+        iv.setOnMouseDragged(event -> {
+            selection.setWidth(Math.abs(event.getX() - anchor.getX()));
+            selection.setHeight(Math.abs(event.getY() - anchor.getY()));
+            selection.setX(Math.min(anchor.getX(), event.getX()));
+            selection.setY(Math.min(anchor.getY(), event.getY()));
+        });
+
+        iv.setOnMouseReleased(event -> {
+            int x1 = (int) (selection.getX() - iv.getX());
+            int y1 = (int) (selection.getY() - iv.getY());
+            int x2 = (int) (x1+selection.getWidth());
+            int y2 = (int) (y1 + selection.getHeight());
+            int width = image.getWidth();
+            int height = image.getHeight();
+            if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
+
+                newWindow.close();
+                RegionFeatures features = RegionFeatures.buildRegionFeatures(regionF.apply(image), x1, y1, x2, y2);
+                activeContoursVideoReproduction(stage, root, features, images, image.getWidth(), image.getHeight(), f);
+
+            }
+            bo.getChildren().remove(selection);
+            selection.setWidth(0);
+            selection.setHeight(0);
+        });
+
+        bo.setStyle("-fx-background-color: WHITE;");
+
+
+
+
+        Scene scene = new Scene(scrollPane);
+
+        newWindow.setTitle("Select initial region");
+        newWindow.setScene(scene);
+        newWindow.setWidth(512);
+        newWindow.setHeight(512);
+
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+    }
+
+
+    private void activeContoursVideoReproduction(Stage stage, BorderPane root, RegionFeatures features, List<formats.Image> images, int width, int height, BiFunction<formats.Image, RegionFeatures, BufferedImage> f) {
+
+
+        Stage newWindow = new Stage();
+
+        List<ImageView> processedImages = new ArrayList<>(images.size());
+        long[] times = new long[images.size()];
+
+        for (int k = 0; k < images.size(); k++) {
+            long t0 = System.currentTimeMillis();
+            processedImages.add(new ImageView(SwingFXUtils.toFXImage(f.apply(images.get(k), features), null)));
+            times[k] = System.currentTimeMillis()-t0;
+        }
+
+        Group sequence = new Group(processedImages.get(0));
+        Timeline timeline = new Timeline();
+
+        for(int k = 0; k < images.size(); k++){
+            final int idx = k;
+            final long time = times[k];
+            timeline.getKeyFrames().addAll(new KeyFrame(Duration.millis((1000/24)*(k+1)), new EventHandler<ActionEvent>(){
+                                @Override
+                                public void handle(ActionEvent t) {
+                                    System.out.println(idx);
+                                    sequence.getChildren().setAll(new Text(String.format("%d\n", time)), processedImages.get(idx));
+                                }
+                           }));
+        }
+        timeline.play();
+
+
+
+
+        Group rootGroup = new Group(sequence);
+
+        Scene scene = new Scene(rootGroup, width, height);
+
+        newWindow.setTitle("Active contours video");
+        newWindow.setScene(scene);
+        newWindow.setWidth(width);
+        newWindow.setHeight(height);
+
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+        newWindow.setOnCloseRequest(e-> timeline.stop());
+
+
+
+
+
+
+
+
+
+    }
+
 
 
 }
