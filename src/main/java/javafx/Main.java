@@ -37,6 +37,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -45,6 +46,9 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class Main extends Application {
+
+    private static final long REAL_TIME_FPS = 24;
+    private static final long THOUSAND = 1000;
 
     private static final double MAX_WIDTH = 384;
     private static final double MAX_HEIGHT = 384;
@@ -2662,8 +2666,8 @@ public class Main extends Application {
 
         newWindow.setTitle("Select initial region");
         newWindow.setScene(scene);
-        newWindow.setWidth(512);
-        newWindow.setHeight(512);
+        newWindow.setWidth(image.getWidth());
+        newWindow.setHeight(image.getHeight());
 
 
         newWindow.setX(stage.getX() + 200);
@@ -2676,6 +2680,8 @@ public class Main extends Application {
 
     private void activeContoursVideoReproduction(Stage stage, BorderPane root, RegionFeatures features, List<formats.Image> images, int width, int height, BiFunction<formats.Image, RegionFeatures, BufferedImage> f) {
 
+        final long fps = REAL_TIME_FPS;
+        final long milisPF = THOUSAND/fps;
 
         Stage newWindow = new Stage();
 
@@ -2689,15 +2695,27 @@ public class Main extends Application {
         }
 
         Group sequence = new Group(processedImages.get(0));
+        Text FPSCount = new Text("");
+        FPSCount.setX(20);
+        FPSCount.setY(height + 20);
+        FPSCount.setStyle("-fx-font: normal bold 20px 'Arial'");
+
         Timeline timeline = new Timeline();
+        timeline.setCycleCount(Timeline.INDEFINITE);
 
         for(int k = 0; k < images.size(); k++){
             final int idx = k;
             final long time = times[k];
-            timeline.getKeyFrames().addAll(new KeyFrame(Duration.millis((1000/24)*(k+1)), new EventHandler<ActionEvent>(){
+            timeline.getKeyFrames().addAll(new KeyFrame(Duration.millis(milisPF*(k+1)), new EventHandler<ActionEvent>(){
                                 @Override
                                 public void handle(ActionEvent t) {
-                                    System.out.println(idx);
+                                    System.out.println(time);
+                                    long fpsCount = THOUSAND/time;
+                                    FPSCount.setText(String.format("%d FPS", fpsCount));
+                                    if(fpsCount >= REAL_TIME_FPS)
+                                        FPSCount.setFill(Color.GREEN);
+                                    else
+                                        FPSCount.setFill(Color.RED);
                                     sequence.getChildren().setAll(new Text(String.format("%d\n", time)), processedImages.get(idx));
                                 }
                            }));
@@ -2707,14 +2725,14 @@ public class Main extends Application {
 
 
 
-        Group rootGroup = new Group(sequence);
+        Group rootGroup = new Group(FPSCount, sequence);
 
         Scene scene = new Scene(rootGroup, width, height);
 
         newWindow.setTitle("Active contours video");
         newWindow.setScene(scene);
         newWindow.setWidth(width);
-        newWindow.setHeight(height);
+        newWindow.setHeight(height + 65);
 
 
         newWindow.setX(stage.getX() + 200);
