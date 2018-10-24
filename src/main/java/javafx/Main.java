@@ -1,7 +1,6 @@
 package javafx;
 
 import formats.*;
-import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -37,10 +36,8 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -396,8 +393,8 @@ public class Main extends Application {
         MenuItem standardCanny = new MenuItem("Standard");
         standardCanny.setOnAction(e -> canny(stage, root));
 
-        MenuItem cannyDif = new MenuItem("Anisotropic Diffusion");
-        cannyDif.setOnAction(e -> cannyIso(stage, root));
+        MenuItem cannyDif = new MenuItem("Enhanced");
+        cannyDif.setOnAction(e -> enhancedCanny(stage, root));
 
         canny.getItems().addAll(standardCanny, cannyDif);
 
@@ -2467,7 +2464,7 @@ public class Main extends Application {
         });
     }
 
-    private void cannyIso(Stage stage, BorderPane root){
+    private void enhancedCanny(Stage stage, BorderPane root){
 
         if(stack.isEmpty()){
             showErrorModal(stage, "Empty stack");
@@ -2488,6 +2485,9 @@ public class Main extends Application {
 
         Text SLabel = new Text("Sigma");
         TextField SField = new TextField();
+
+        Text MedianFilterLabel = new Text("Filter size");
+        TextField MedianFilterField = new TextField();
 
         Button submit = new Button("OK");
 
@@ -2510,7 +2510,9 @@ public class Main extends Application {
         gridPane.add(TField, 1, 3);
         gridPane.add(SLabel, 0, 4);
         gridPane.add(SField, 1, 4);
-        gridPane.add(submit, 0, 5);
+        gridPane.add(MedianFilterLabel, 0, 5);
+        gridPane.add(MedianFilterField, 1, 5);
+        gridPane.add(submit, 0, 6);
 
         submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
 
@@ -2519,6 +2521,7 @@ public class Main extends Application {
         detectorLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
         TLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
         SLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        MedianFilterLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
         gridPane.setStyle("-fx-background-color: WHITE;");
 
         Scene scene = new Scene(gridPane);
@@ -2540,7 +2543,9 @@ public class Main extends Application {
 
                 Double t2 = Double.valueOf(t2Field.getText());
 
-                if(t1 >= t2)
+                Integer n = Integer.valueOf(MedianFilterField.getText());
+
+                if(t1 >= t2 || n <= 0 || n % 2 == 0)
                     throw new Exception();
 
 
@@ -2573,12 +2578,12 @@ public class Main extends Application {
                     return;
                 }
 
-                formats.Image image = stack.pop().diffusion(t, s, detector).canny(t1, t2);
+                formats.Image image = stack.pop().equalize().diffusion(t, s, detector).medianFilter(n).canny(t1, t2);
 
                 pushAndRender(image, stage, root);
 
             } catch (Exception e) {
-                showErrorModal(stage,"Invalid threshold value, try again");
+                showErrorModal(stage,"Invalid arguments");
             }
             newWindow.close();
         });
