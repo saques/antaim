@@ -444,7 +444,7 @@ public class Main extends Application {
         hough.getItems().addAll(lineHough, circleHough);
 
 
-        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, cannyDif, susan, activeContours,hough);
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, susan, activeContours,hough);
 
         /**
          *
