@@ -2,6 +2,8 @@ package javafx;
 
 import formats.*;
 import interfaces.FigureMode;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
@@ -26,16 +28,25 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.*;
 import javafx.scene.image.Image;
+import javafx.util.Duration;
 import noise.*;
 import structures.LinkedListPeekAheadStack;
 import structures.PeekAheadStack;
 import utils.ImageDrawingUtils;
 import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class Main extends Application {
+
+    private static final long REAL_TIME_FPS = 24;
+    private static final long THOUSAND = 1000;
 
     private static final double MAX_WIDTH = 384;
     private static final double MAX_HEIGHT = 384;
@@ -377,27 +388,63 @@ public class Main extends Application {
             formats.Image image = stack.pop();
             pushAndRender(image.sobel(), stage, root);
         });
-        MenuItem canny = new MenuItem("Canny");
-        canny.setOnAction(e -> canny(stage, root));
 
-        MenuItem cannyDif = new MenuItem("Diffusion and Canny");
-        cannyDif.setOnAction(e -> cannyIso(stage, root));
+        Menu canny = new Menu("Canny");
 
-        MenuItem susan = new MenuItem("Susan on current image");
-        susan.setOnAction(e-> {susan(stage,root,true);});
+        MenuItem standardCanny = new MenuItem("Standard");
+        standardCanny.setOnAction(e -> canny(stage, root));
 
-        MenuItem susanNewImage = new MenuItem("Susan on new image");
-        susanNewImage.setOnAction(e-> {susan(stage,root,false);});
+        MenuItem cannyDif = new MenuItem("Enhanced");
+        cannyDif.setOnAction(e -> enhancedCanny(stage, root));
 
-        MenuItem activeContours = new MenuItem("Active contours");
-        activeContours.setOnAction(e -> activeContours(stage, root));
+        canny.getItems().addAll(standardCanny, cannyDif);
+
+        Menu susan = new Menu("SUSAN");
+
+        MenuItem susanCurrent = new MenuItem("SUSAN on current image");
+        susanCurrent.setOnAction(e-> susan(stage,root,true));
+
+        MenuItem susanNewImage = new MenuItem("SUSAN on new image");
+        susanNewImage.setOnAction(e-> susan(stage,root,false));
+
+        susan.getItems().addAll(susanCurrent, susanNewImage);
+
+        Menu activeContours = new Menu("Active contours");
+
+        MenuItem oneImageAC = new MenuItem("Image");
+        oneImageAC.setOnAction(e -> activeContours(stage, root));
+
+        Menu videoAC = new Menu("Video");
+
+        MenuItem videoACStandard = new MenuItem("Standard");
+        videoACStandard.setOnAction(e -> activeContoursVideo(stage, root, (i, features) -> {
+            i.activeContours(features);
+            ImageDrawingUtils.drawLinLout(i, features);
+            return i.toBufferedImage();
+        }, x -> x));
+
+        MenuItem videoACDynamicRange = new MenuItem("Dynamic Range");
+        videoACDynamicRange.setOnAction(e -> activeContoursVideo(stage, root, (i, features) -> {
+            i.dynamicRangeCompression().activeContours(features);
+            ImageDrawingUtils.drawLinLout(i, features);
+            return i.toBufferedImage();
+        }, formats.Image::dynamicRangeCompression));
+
+        videoAC.getItems().addAll(videoACStandard, videoACDynamicRange);
+
+        Menu hough = new Menu("Hough Transform");
+
+        activeContours.getItems().addAll(oneImageAC, videoAC);
         MenuItem lineHough = new MenuItem("Line Hough");
         lineHough.setOnAction(e-> {houghLine(stage,root);});
 
         MenuItem circleHough = new MenuItem("Circle Hough");
         circleHough.setOnAction(e-> {houghCircle(stage,root);});
 
-        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, cannyDif, susan, susanNewImage, activeContours,lineHough,circleHough);
+        hough.getItems().addAll(lineHough, circleHough);
+
+
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, cannyDif, susan, activeContours,hough);
 
         /**
          *
@@ -2616,7 +2663,7 @@ public class Main extends Application {
         });
     }
 
-    private void cannyIso(Stage stage, BorderPane root){
+    private void enhancedCanny(Stage stage, BorderPane root){
 
         if(stack.isEmpty()){
             showErrorModal(stage, "Empty stack");
@@ -2637,6 +2684,9 @@ public class Main extends Application {
 
         Text SLabel = new Text("Sigma");
         TextField SField = new TextField();
+
+        Text MedianFilterLabel = new Text("Filter size");
+        TextField MedianFilterField = new TextField();
 
         Button submit = new Button("OK");
 
@@ -2659,7 +2709,9 @@ public class Main extends Application {
         gridPane.add(TField, 1, 3);
         gridPane.add(SLabel, 0, 4);
         gridPane.add(SField, 1, 4);
-        gridPane.add(submit, 0, 5);
+        gridPane.add(MedianFilterLabel, 0, 5);
+        gridPane.add(MedianFilterField, 1, 5);
+        gridPane.add(submit, 0, 6);
 
         submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
 
@@ -2668,6 +2720,7 @@ public class Main extends Application {
         detectorLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
         TLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
         SLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        MedianFilterLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
         gridPane.setStyle("-fx-background-color: WHITE;");
 
         Scene scene = new Scene(gridPane);
@@ -2689,7 +2742,9 @@ public class Main extends Application {
 
                 Double t2 = Double.valueOf(t2Field.getText());
 
-                if(t1 >= t2)
+                Integer n = Integer.valueOf(MedianFilterField.getText());
+
+                if(t1 >= t2 || n <= 0 || n % 2 == 0)
                     throw new Exception();
 
 
@@ -2722,16 +2777,184 @@ public class Main extends Application {
                     return;
                 }
 
-                formats.Image image = stack.pop().diffusion(t, s, detector).canny(t1, t2);
+                formats.Image image = stack.pop().equalize().diffusion(t, s, detector).medianFilter(n).canny(t1, t2);
 
                 pushAndRender(image, stage, root);
 
             } catch (Exception e) {
-                showErrorModal(stage,"Invalid threshold value, try again");
+                showErrorModal(stage,"Invalid arguments");
             }
             newWindow.close();
         });
     }
+
+
+    private void activeContoursVideo(Stage stage, BorderPane root, BiFunction<formats.Image, RegionFeatures, BufferedImage> f, Function<formats.Image, formats.Image> regionF){
+        List<File> files = fileChooser.showOpenMultipleDialog(stage);
+
+        if(files == null){
+            showErrorModal(stage, "No images selected");
+            return;
+        }
+
+        List<formats.Image> images = new ArrayList<>(files.size());
+
+        files.forEach(x -> {
+            try {
+                images.add(new formats.Image(x.toString()));
+            } catch (Exception e) {
+            }
+        });
+
+        Stage newWindow = new Stage();
+
+
+        formats.Image image = images.get(0);
+
+        ImageView iv = new ImageView(SwingFXUtils.toFXImage(image.toBufferedImage(), null));
+
+
+        BorderPane bo = new BorderPane(iv);
+        bo.setMaxWidth(image.getWidth()); bo.setMaxHeight(image.getHeight());
+        ScrollPane scrollPane = new ScrollPane(bo);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+
+        final Rectangle selection = new Rectangle();
+        final Light.Point anchor = new Light.Point();
+
+        iv.setOnMousePressed(event -> {
+            anchor.setX(event.getX());
+            anchor.setY(event.getY());
+            selection.setX(event.getX());
+            selection.setY(event.getY());
+            selection.setFill(null); // transparent
+            selection.setStroke(Color.BLACK); // border
+            selection.getStrokeDashArray().add(10.0);
+            bo.getChildren().add(selection);
+        });
+
+        iv.setOnMouseDragged(event -> {
+            selection.setWidth(Math.abs(event.getX() - anchor.getX()));
+            selection.setHeight(Math.abs(event.getY() - anchor.getY()));
+            selection.setX(Math.min(anchor.getX(), event.getX()));
+            selection.setY(Math.min(anchor.getY(), event.getY()));
+        });
+
+        iv.setOnMouseReleased(event -> {
+            int x1 = (int) (selection.getX() - iv.getX());
+            int y1 = (int) (selection.getY() - iv.getY());
+            int x2 = (int) (x1+selection.getWidth());
+            int y2 = (int) (y1 + selection.getHeight());
+            int width = image.getWidth();
+            int height = image.getHeight();
+            if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
+
+                newWindow.close();
+                RegionFeatures features = RegionFeatures.buildRegionFeatures(regionF.apply(image), x1, y1, x2, y2);
+                activeContoursVideoReproduction(stage, root, features, images, image.getWidth(), image.getHeight(), f);
+
+            }
+            bo.getChildren().remove(selection);
+            selection.setWidth(0);
+            selection.setHeight(0);
+        });
+
+        bo.setStyle("-fx-background-color: WHITE;");
+
+
+
+
+        Scene scene = new Scene(scrollPane);
+
+        newWindow.setTitle("Select initial region");
+        newWindow.setScene(scene);
+        newWindow.setWidth(image.getWidth());
+        newWindow.setHeight(image.getHeight());
+
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+    }
+
+
+    private void activeContoursVideoReproduction(Stage stage, BorderPane root, RegionFeatures features, List<formats.Image> images, int width, int height, BiFunction<formats.Image, RegionFeatures, BufferedImage> f) {
+
+        final long fps = REAL_TIME_FPS;
+        final long milisPF = THOUSAND/fps;
+
+        Stage newWindow = new Stage();
+
+        List<ImageView> processedImages = new ArrayList<>(images.size());
+        long[] times = new long[images.size()];
+
+        for (int k = 0; k < images.size(); k++) {
+            long t0 = System.currentTimeMillis();
+            processedImages.add(new ImageView(SwingFXUtils.toFXImage(f.apply(images.get(k), features), null)));
+            times[k] = System.currentTimeMillis()-t0;
+        }
+
+        Group sequence = new Group(processedImages.get(0));
+        Text FPSCount = new Text("");
+        FPSCount.setX(20);
+        FPSCount.setY(height + 20);
+        FPSCount.setStyle("-fx-font: normal bold 20px 'Arial'");
+
+        Timeline timeline = new Timeline();
+        timeline.setCycleCount(Timeline.INDEFINITE);
+
+        for(int k = 0; k < images.size(); k++){
+            final int idx = k;
+            final long time = times[k];
+            timeline.getKeyFrames().addAll(new KeyFrame(Duration.millis(milisPF*(k+1)), new EventHandler<ActionEvent>(){
+                                @Override
+                                public void handle(ActionEvent t) {
+                                    System.out.println(time);
+                                    long fpsCount = THOUSAND/time;
+                                    FPSCount.setText(String.format("%d FPS", fpsCount));
+                                    if(fpsCount >= REAL_TIME_FPS)
+                                        FPSCount.setFill(Color.GREEN);
+                                    else
+                                        FPSCount.setFill(Color.RED);
+                                    sequence.getChildren().setAll(new Text(String.format("%d\n", time)), processedImages.get(idx));
+                                }
+                           }));
+        }
+        timeline.play();
+
+
+
+
+        Group rootGroup = new Group(FPSCount, sequence);
+
+        Scene scene = new Scene(rootGroup, width, height);
+
+        newWindow.setTitle("Active contours video");
+        newWindow.setScene(scene);
+        newWindow.setWidth(width);
+        newWindow.setHeight(height + 65);
+
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+        newWindow.setOnCloseRequest(e-> timeline.stop());
+
+
+
+
+
+
+
+
+
+    }
+
 
 
 }

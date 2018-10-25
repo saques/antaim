@@ -1080,7 +1080,7 @@ public class Image implements Cloneable{
          * FINISH
          */
 
-        return intersection(gauss1histTh, gauss2histTh);
+        return gauss1histTh.product(gauss2histTh);
     }
 
     private static Image cannySobelModulusAngleNoMaxSuppr(List<ImageMaxMin> dxdy, int width, int height){
@@ -1173,23 +1173,6 @@ public class Image implements Cloneable{
                             }
                         }
                     }
-                }
-            }
-        }
-
-        return ans;
-    }
-
-    public static Image intersection(Image i1, Image i2){
-        if(i1.width != i2.width || i1.height != i2.height || i1.encoding != i2.encoding || i1.encoding.equals(Encoding.HSV))
-            throw new IllegalArgumentException();
-
-        Image ans = new Image(i1.width, i1.height, i1.encoding, true);
-
-        for(int i = 0; i < i1.width; i++){
-            for(int j = 0; j < i1.height; j++){
-                for(int c = 0; c < i1.encoding.getBands(); c++){
-                    ans.setComponent(i, j, c, i1.getComponent(i, j, c)*i2.getComponent(i, j, c));
                 }
             }
         }
