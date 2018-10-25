@@ -63,6 +63,22 @@ public final class ImageDrawingUtils {
         return image;
     }
 
+    public static Image drawCircleBorder(Image image, int x, int y, int radius, GradientColour gradientColour){
+        if(image.isOutOfBounds(x, y))
+            throw new IndexOutOfBoundsException();
+        for(int i = x-radius; i <= x+radius; i++){
+            int j = (int)(Math.sqrt(Math.pow(radius,2) - Math.pow(i - x,2) ))  ;
+            if(!image.isOutOfBounds(i, y+j) ) {
+                image.setComponentsRGB(i, y + j, gradientColour.compute(i, y + j));
+            }
+            if(!image.isOutOfBounds(i, y-j) ) {
+                image.setComponentsRGB(i, y - j, gradientColour.compute(i, y - j));
+            }
+        }
+
+        return image;
+    }
+
     public static double pithagoras(double x1, double x2, double y1, double y2){
         return Math.sqrt(Math.pow(x2 - x1,2) + Math.pow(y2 - y1, 2));
     }

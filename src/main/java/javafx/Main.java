@@ -1,6 +1,7 @@
 package javafx;
 
 import formats.*;
+import interfaces.FigureMode;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
@@ -390,8 +391,13 @@ public class Main extends Application {
 
         MenuItem activeContours = new MenuItem("Active contours");
         activeContours.setOnAction(e -> activeContours(stage, root));
+        MenuItem lineHough = new MenuItem("Line Hough");
+        lineHough.setOnAction(e-> {houghLine(stage,root);});
 
-        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, cannyDif, susan, susanNewImage, activeContours);
+        MenuItem circleHough = new MenuItem("Circle Hough");
+        circleHough.setOnAction(e-> {houghCircle(stage,root);});
+
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, cannyDif, susan, susanNewImage, activeContours,lineHough,circleHough);
 
         /**
          *
@@ -1534,6 +1540,196 @@ public class Main extends Application {
                 showErrorModal(stage,"Invalid dimensions, try again");
             }
             newWindow.close();
+        });
+
+    }
+
+    private void houghLine(Stage stage, BorderPane root){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text pLabel = new Text("ro step");
+
+        TextField pField = new TextField();
+
+        Text thetaLabel = new Text("tita step");
+
+        TextField thetaField = new TextField();
+
+        Text epsilonLabel = new Text("epsilon");
+
+        TextField epsilonField = new TextField();
+
+        Text thresholdLabel = new Text("threshold");
+
+        TextField thresholdField = new TextField();
+
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(pLabel, 0, 0);
+        gridPane.add(pField, 1, 0);
+        gridPane.add(thetaLabel, 0, 1);
+        gridPane.add(thetaField, 1, 1);
+        gridPane.add(epsilonLabel, 0, 2);
+        gridPane.add(epsilonField, 1, 2);
+        gridPane.add(thresholdLabel, 0, 3);
+        gridPane.add(thresholdField, 1, 3);
+
+
+        gridPane.add(submit, 0, 4);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        pLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        thetaLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        thresholdLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        epsilonLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Hough Line");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+        formats.Image aux = stack.peek();
+        submit.setOnAction(event -> {
+            try {
+                Double p = Double.valueOf(pField.getText());
+                Double theta = Double.valueOf(thetaField.getText());
+                Double epsilon = Double.valueOf(epsilonField.getText());
+                Double threshold = Double.valueOf(thresholdField.getText());
+
+
+                if(p < 0 || theta < 0 || epsilon < 0 || threshold < 0.0 || threshold > 1) {
+                    throw new Exception();
+                }
+
+                formats.Image image = stack.pop();
+
+                pushAndRender(aux.houghTransform(FigureMode.STRAIGHT,p,theta,0,0,0,epsilon,threshold), stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid dimensions, try again");
+            }
+        });
+
+    }
+
+    private void houghCircle(Stage stage, BorderPane root){
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text aLabel = new Text("a step");
+
+        TextField aField = new TextField();
+
+        Text bLabel = new Text("b step");
+
+        TextField bField = new TextField();
+
+        Text rLabel = new Text("r step");
+
+        TextField rField = new TextField();
+
+        Text epsilonLabel = new Text("epsilon");
+
+        TextField epsilonField = new TextField();
+
+        Text thresholdLabel = new Text("threshold");
+
+        TextField thresholdField = new TextField();
+
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(aLabel, 0, 0);
+        gridPane.add(aField, 1, 0);
+        gridPane.add(bLabel, 0, 1);
+        gridPane.add(bField, 1, 1);
+        gridPane.add(rLabel, 0, 2);
+        gridPane.add(rField, 1, 2);
+        gridPane.add(epsilonLabel, 0, 3);
+        gridPane.add(epsilonField, 1, 3);
+        gridPane.add(thresholdLabel, 0, 4);
+        gridPane.add(thresholdField, 1, 4);
+
+
+        gridPane.add(submit, 0, 5);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        aLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        bLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        rLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        thresholdLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        epsilonLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Hough Line");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+        formats.Image aux = stack.peek();
+
+        submit.setOnAction(event -> {
+            try {
+                Integer a = Integer.valueOf(aField.getText());
+                Integer b = Integer.valueOf(bField.getText());
+                Integer r = Integer.valueOf(rField.getText());
+
+                Double epsilon = Double.valueOf(epsilonField.getText());
+                Double threshold = Double.valueOf(thresholdField.getText());
+
+
+                if(a < 0 || b < 0 || r <0 || epsilon < 0 || threshold < 0.0 || threshold > 1) {
+                    throw new Exception();
+                }
+
+                formats.Image image = stack.pop();
+
+                pushAndRender(aux.houghTransform(FigureMode.CIRCLE,0.0,0.0,a,b,r,epsilon,threshold), stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid dimensions, try again");
+            }
         });
 
     }

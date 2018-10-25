@@ -3,10 +3,12 @@ package formats;
 
 import com.sun.imageio.plugins.common.BitFile;
 import formats.exceptions.NoSuchComponentException;
+import interfaces.FigureMode;
 import interfaces.TriFunction;
 import lombok.Getter;
 import noise.NoiseApplyMode;
 import noise.NoiseGenerator;
+import utils.ImageDrawingUtils;
 import utils.MathUtils;
 
 import javax.imageio.ImageIO;
@@ -538,7 +540,7 @@ public class Image implements Cloneable{
                 ans[i] = 0;
             else
                 ans[i] = Math.pow((cumMean[cumMean.length - 1] * cumRelHisto[i]) - cumMean[i],2) / (cumRelHisto[i] * ( 1 - cumRelHisto[i]));
-            System.out.println(ans[i] + " "+i);
+            //System.out.println(ans[i] + " "+i);
         }
         return ans;
     }
@@ -1727,6 +1729,126 @@ public class Image implements Cloneable{
     END ACTIVE CONTOURS
      */
 
+    public Image houghTransform(FigureMode mode ,Double pStep,Double thetaStep, Integer aStep, Integer bStep, Integer rStep,Double epsilon,Double threshold){
+        double t0 = System.currentTimeMillis();
+        Image aux = toGS().sobel().otsu();
+        List<Pixel> whitePixels = aux.getWhitePixels();
+        Image ans = new Image(width, height, Encoding.GS, true);
+        if (mode.equals(FigureMode.STRAIGHT)){
+            Integer D = Math.max(aux.width,aux.height);
+            Map<Double,Map<Double,Integer>>  accumulator = new HashMap<>();
+            Integer maxAccum = 0;
+            for (double p = (-1) * Math.sqrt(2) * D ; p <= Math.sqrt(2) * D ; p+=pStep){
+                accumulator.put(p,new HashMap<>());
+                for (double theta = -90 ; theta <= 90 ; theta+= thetaStep){
+                    Integer currAccum = 0;
+                    for (Pixel whitePixel : whitePixels){
+                        if (Math.abs(p - whitePixel.x * Math.cos(Math.toRadians(theta)) - whitePixel.y * Math.sin(Math.toRadians(theta))) < epsilon){
+                            currAccum++;
+                        }
+                    }
+                    accumulator.get(p).put(theta,currAccum);
+                    if (currAccum > maxAccum){
+                        maxAccum = currAccum;
+                    }
+                }
+            }
+            for (double p = (-1) * Math.sqrt(2) * D ; p <= Math.sqrt(2) * D ; p+=pStep){
+                for (double theta = -90 ; theta <= 90 ; theta+= thetaStep){
+                    if (accumulator.get(p).get(theta) >=   (threshold*maxAccum)){
+                        //System.out.println(p+" "+theta);
+                        aux.printStraight(p,theta);
+                    }
+                }
+            }
+            System.out.println(System.currentTimeMillis() - t0);
+
+        } else{
+            Double D = Math.sqrt(Math.pow(aux.width,2) + Math.pow(aux.height,2));
+            Map<Integer,Map<Integer,Map<Integer,Integer>>>  accumulator = new HashMap<>();
+            Integer maxAccum = 0;
+            for (int a = 0 ; a < width ; a+=aStep){
+                accumulator.put(a,new HashMap<>());
+                for (int b = 0 ; b < height ; b+= bStep){
+                    accumulator.get(a).put(b,new HashMap<>());
+                    for (int r = 1 ; r <= D/2 ; r+=rStep) {
+                        Integer currAccum = 0;
+                        for (Pixel whitePixel : whitePixels) {
+                            if (Math.abs(Math.pow(r,2) - Math.pow(whitePixel.x - a,2) - Math.pow(whitePixel.y - b,2)) < epsilon) {
+                                currAccum++;
+                            }
+                        }
+                        accumulator.get(a).get(b).put(r, currAccum);
+                        if (currAccum > maxAccum) {
+                            maxAccum = currAccum;
+                        }
+                    }
+                }
+            }
+            for (int a = 0 ; a < width ; a+=aStep) {
+                for (int b = 0; b < height; b += bStep) {
+                    for (int r = 1; r <= D/2 ; r += rStep) {
+                        if (accumulator.get(a).get(b).get(r) >= threshold*maxAccum) {
+                            aux = ans;
+                            ImageDrawingUtils.drawCircleBorder(aux, a, b, r, (j, k) -> new double[]{1.0, 0.0, 0.0});
+                        }
+                    }
+                }
+            }
+            System.out.println(System.currentTimeMillis() - t0);
+        }
+        return aux;
+
+    }
+
+    private static class Pixel{
+        int x,y;
+
+        public Pixel(int x,int y){
+            this.x = x;
+            this.y=y;
+        }
+    }
+
+    public List<Pixel> getWhitePixels(){
+        if (getEncoding() != encoding.GS){
+            throw new IllegalArgumentException("La imagen tiene que ser en escala de grises");
+        }
+        List<Pixel> ans = new LinkedList<>();
+        for (int i = 0 ; i < width ; i++){
+            for (int j = 0 ; j < height ; j++){
+                if (getComponent(i,j,0) == MAX_D){
+                    ans.add(new Pixel(i,j));
+                }
+            }
+        }
+        return ans;
+    }
+
+    public void printStraight(double p,double theta){
+        if (getEncoding() != encoding.GS){
+            throw new IllegalArgumentException("La imagen tiene que ser en escala de grises");
+        }
+        int y;
+        if (Math.abs(theta) > 5) {
+            for (int x = 0; x < width; x++) {
+                y = (int) ((p - (x * Math.cos(Math.toRadians(theta)))) / Math.sin(Math.toRadians(theta)));
+                if (!isOutOfBounds(x, y)) {
+                    // System.out.println("x "+x +" y "+y);
+                    if (getComponent(x,y,0) == 0)
+                        setComponent(x, y, 0, MAX_D/2);
+                }
+            }
+        }
+        else {
+            int x = (int)(p / Math.cos(Math.toRadians(theta)));
+            for ( y = 0; y < width; y++) {
+                if (!isOutOfBounds(x, y)) {
+                    setComponent(x, y, 0, MAX_D);
+                }
+            }
+        }
+    }
     public Image copy(int x1, int y1, int x2, int y2){
         if(isOutOfBounds(x1, y1) || isOutOfBounds(x2, y2))
             throw new IndexOutOfBoundsException();

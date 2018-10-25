@@ -1,4 +1,5 @@
 import formats.*;
+import interfaces.FigureMode;
 import noise.*;
 import utils.ImageDrawingUtils;
 
@@ -13,7 +14,7 @@ public final class PlayGround {
     private PlayGround() {}
 
     public static void main(String[] args) throws IOException {
-        canny("images\\220200_screenshots_20180205200432_1.jpg", 0.3, 0.5);
+        testHoughTransformStraight("./images/TEST.PNG");
     }
 
     /**
@@ -38,6 +39,14 @@ public final class PlayGround {
         ImageIO.write(image.toBufferedImage(), "bmp", new File("images\\testActiveContoursCircle.BMP"));
     }
 
+    public static void testHoughTransformStraight(String file) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.houghTransform(FigureMode.STRAIGHT,1.0,3.0,0,0,0,0.5,0.4).toBufferedImage(), "png", new File("images\\hough.BMP"));
+    }
+    public static void testHoughTransformCircle(String file) throws IOException{
+        Image img = new Image(file);
+        ImageIO.write(img.houghTransform(FigureMode.CIRCLE,0.0,0.0,2,2,2,20.0,0.7).toBufferedImage(), "png", new File("images\\hough.BMP"));
+    }
 
     public static void testLinLoutInit() throws IOException{
         Image image = new Image(200,200, Encoding.RGB, true);
