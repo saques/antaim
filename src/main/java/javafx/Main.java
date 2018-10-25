@@ -2,6 +2,7 @@ package javafx;
 
 import formats.*;
 import interfaces.FigureMode;
+import interfaces.TriFunction;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -412,23 +413,15 @@ public class Main extends Application {
         Menu activeContours = new Menu("Active contours");
 
         MenuItem oneImageAC = new MenuItem("Image");
-        oneImageAC.setOnAction(e -> activeContours(stage, root));
+        oneImageAC.setOnAction(e -> activeContoursThresholdSelection(stage, root, false, false));
 
         Menu videoAC = new Menu("Video");
 
         MenuItem videoACStandard = new MenuItem("Standard");
-        videoACStandard.setOnAction(e -> activeContoursVideo(stage, root, (i, features) -> {
-            i.activeContours(features);
-            ImageDrawingUtils.drawLinLout(i, features);
-            return i.toBufferedImage();
-        }, x -> x));
+        videoACStandard.setOnAction(e -> activeContoursThresholdSelection(stage, root, true, false));
 
         MenuItem videoACDynamicRange = new MenuItem("Dynamic Range");
-        videoACDynamicRange.setOnAction(e -> activeContoursVideo(stage, root, (i, features) -> {
-            i.dynamicRangeCompression().activeContours(features);
-            ImageDrawingUtils.drawLinLout(i, features);
-            return i.toBufferedImage();
-        }, formats.Image::dynamicRangeCompression));
+        videoACDynamicRange.setOnAction(e -> activeContoursThresholdSelection(stage, root, true, true));
 
         videoAC.getItems().addAll(videoACStandard, videoACDynamicRange);
 
@@ -2510,8 +2503,84 @@ public class Main extends Application {
 
     }
 
+    private void activeContoursThresholdSelection(Stage stage, BorderPane root, boolean video, boolean dynamicRange){
+        if(!video && stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
 
-    private void activeContours(Stage stage, BorderPane root){
+        Text tLabel = new Text("t");
+
+        TextField tField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(tLabel, 0, 0);
+        gridPane.add(tField, 1, 0);
+        gridPane.add(submit, 0, 1);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        tLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Threshold selection");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+                Double threshold = Double.valueOf(tField.getText());
+
+
+                if(threshold <= 0 || threshold >= 1) {
+                    throw new Exception();
+                }
+
+                if(!video)
+                    activeContours(stage, root, threshold);
+                else
+                    if(!dynamicRange){
+                        activeContoursVideo(stage, root, (i, features, t) -> {
+                            i.activeContours(features, t);
+                            ImageDrawingUtils.drawLinLout(i, features);
+                            return i.toBufferedImage();
+                        }, x -> x, threshold);
+                    } else {
+                        activeContoursVideo(stage, root, (i, features, t) -> {
+                            i.dynamicRangeCompression().activeContours(features, t);
+                            ImageDrawingUtils.drawLinLout(i, features);
+                            return i.toBufferedImage();
+                        }, formats.Image::dynamicRangeCompression, threshold);
+                    }
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid threshold");
+            }
+            newWindow.close();
+        });
+
+    }
+
+
+    private void activeContours(Stage stage, BorderPane root, double threshold){
         if(stack.isEmpty()){
             showErrorModal(stage, "Empty stack");
             return;
@@ -2520,7 +2589,7 @@ public class Main extends Application {
         Stage newWindow = new Stage();
 
 
-        formats.Image image = stack.pop();
+        formats.Image image = stack.pop().toRGB();
         ImageView iv = new ImageView(SwingFXUtils.toFXImage(image.toBufferedImage(), null));
 
 
@@ -2563,7 +2632,7 @@ public class Main extends Application {
             int height = image.getHeight();
             if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
                 RegionFeatures features = RegionFeatures.buildRegionFeatures(image, x1, y1, x2, y2);
-                image.activeContours(features);
+                image.activeContours(features, threshold);
                 formats.Image img = image.clone();
                 pushAndRender(ImageDrawingUtils.drawLinLout(img, features), stage, root);
                 newWindow.close();
@@ -2789,7 +2858,7 @@ public class Main extends Application {
     }
 
 
-    private void activeContoursVideo(Stage stage, BorderPane root, BiFunction<formats.Image, RegionFeatures, BufferedImage> f, Function<formats.Image, formats.Image> regionF){
+    private void activeContoursVideo(Stage stage, BorderPane root, TriFunction<formats.Image, RegionFeatures,Double, BufferedImage> f, Function<formats.Image, formats.Image> regionF, double t){
         List<File> files = fileChooser.showOpenMultipleDialog(stage);
 
         if(files == null){
@@ -2801,7 +2870,7 @@ public class Main extends Application {
 
         files.forEach(x -> {
             try {
-                images.add(new formats.Image(x.toString()));
+                images.add(new formats.Image(x.toString()).toRGB());
             } catch (Exception e) {
             }
         });
@@ -2853,7 +2922,7 @@ public class Main extends Application {
 
                 newWindow.close();
                 RegionFeatures features = RegionFeatures.buildRegionFeatures(regionF.apply(image), x1, y1, x2, y2);
-                activeContoursVideoReproduction(stage, root, features, images, image.getWidth(), image.getHeight(), f);
+                activeContoursVideoReproduction(stage, root, features, images, image.getWidth(), image.getHeight(), f, t);
 
             }
             bo.getChildren().remove(selection);
@@ -2882,7 +2951,7 @@ public class Main extends Application {
     }
 
 
-    private void activeContoursVideoReproduction(Stage stage, BorderPane root, RegionFeatures features, List<formats.Image> images, int width, int height, BiFunction<formats.Image, RegionFeatures, BufferedImage> f) {
+    private void activeContoursVideoReproduction(Stage stage, BorderPane root, RegionFeatures features, List<formats.Image> images, int width, int height, TriFunction<formats.Image, RegionFeatures,Double, BufferedImage> f, double t) {
 
         final long fps = REAL_TIME_FPS;
         final long milisPF = THOUSAND/fps;
@@ -2894,7 +2963,7 @@ public class Main extends Application {
 
         for (int k = 0; k < images.size(); k++) {
             long t0 = System.currentTimeMillis();
-            processedImages.add(new ImageView(SwingFXUtils.toFXImage(f.apply(images.get(k), features), null)));
+            processedImages.add(new ImageView(SwingFXUtils.toFXImage(f.apply(images.get(k), features, t), null)));
             times[k] = System.currentTimeMillis()-t0;
         }
 
@@ -2913,7 +2982,6 @@ public class Main extends Application {
             timeline.getKeyFrames().addAll(new KeyFrame(Duration.millis(milisPF*(k+1)), new EventHandler<ActionEvent>(){
                                 @Override
                                 public void handle(ActionEvent t) {
-                                    System.out.println(time);
                                     long fpsCount = THOUSAND/time;
                                     FPSCount.setText(String.format("%d FPS", fpsCount));
                                     if(fpsCount >= REAL_TIME_FPS)

@@ -8,6 +8,7 @@ import interfaces.TriFunction;
 import lombok.Getter;
 import noise.NoiseApplyMode;
 import noise.NoiseGenerator;
+import structures.Vector3D;
 import utils.ImageDrawingUtils;
 import utils.MathUtils;
 
@@ -31,6 +32,7 @@ public class Image implements Cloneable{
     public static final double MAX_D = 1.0;
     public static final int M = 0xFF;
     public static final double U = 1.0/M;
+    public static final double SQRT_3 = Math.sqrt(3);
 
     private static final TriFunction<Double, Double, Double, Double> linearAdjust = (c, min, max) -> (c - min)/(max-min);
     private static final BiFunction<Double, Double, Double> modulus = (x, y) -> Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
@@ -1044,7 +1046,7 @@ public class Image implements Cloneable{
          * GAUSS FILTERS
          */
         List<ImageMaxMin> gauss = gs.convolution(gaussMask(3, 1, true),
-                                                 gaussMask(5, 2, true));
+                                                 gaussMask(3, 1, true));
 
         Image gauss1 = gauss.get(0).image, gauss2 = gauss.get(1).image;
 
@@ -1527,8 +1529,15 @@ public class Image implements Cloneable{
     BEGIN ACTIVE CONTOURS
      */
 
-
     public void activeContours(RegionFeatures features){
+        activeContours(features, (x, y) -> FdBACK_IMG(x, y, features.getObjAvg(), features.getBackAvg()));
+    }
+
+    public void activeContours(RegionFeatures features, double threshold){
+        activeContours(features, (x, y) -> FdIMG(x, y, features.getObjAvg(), threshold));
+    }
+
+    private void activeContours(RegionFeatures features, BiFunction<Integer, Integer, Double> f){
 
         final int n = 5;
         final int d = n/2;
@@ -1538,7 +1547,7 @@ public class Image implements Cloneable{
         Predicate<Double> p2 = x -> x < 0;
 
 
-        activeContours(features, Math.max(width, height), p1, p2, (x, y) -> Fd(x, y, features.getObjAvg(), features.getBackAvg()));
+        activeContours(features, Math.max(width, height), p1, p2, f);
 
         activeContours(features,  Math.max(width, height), p2, p1, (x, y) -> {
             double accum = 0;
@@ -1554,6 +1563,8 @@ public class Image implements Cloneable{
     }
 
     private void activeContours(RegionFeatures features, int maxIters, Predicate<Double> pLout, Predicate<Double> pLin, BiFunction<Integer, Integer, Double> F){
+        if(encoding != Encoding.RGB)
+            throw new IllegalArgumentException();
 
         boolean allLoutOk = false, allLinOk = false;
         while (maxIters > 0 && !(allLinOk && allLoutOk)){
@@ -1690,23 +1701,24 @@ public class Image implements Cloneable{
 
     }
 
-    private double Fd(int x, int y, double thetaObj, double thetaBack){
-        double thetaPix = 0;
+    private double FdBACK_IMG(int x, int y, Vector3D thetaObj, Vector3D thetaBack){
+        Vector3D thetaPix = new Vector3D(getComponent(x, y, 0), getComponent(x, y, 1), getComponent(x, y, 2));
 
-        for(int c = 0; c < encoding.getBands(); c++)
-            thetaPix += Math.pow(getComponent(x, y, c), 2);
-        thetaPix = Math.sqrt(thetaPix);
-
-
-        if(Double.compare(0, Math.abs(thetaObj - thetaPix)) == 0)
+        if(Double.compare(0, thetaObj.sub(thetaPix).mod()) == 0)
             return 0;
 
-        double div = Math.abs(thetaBack - thetaPix)/Math.abs(thetaObj - thetaPix);
+        double div = thetaBack.sub(thetaPix).mod()/thetaObj.sub(thetaPix).mod();
 
         return div < 1 ? -1 : div > 1 ? 1 : 0;
     }
 
+    private double FdIMG(int x, int y, Vector3D thetaObj, double threshold){
+        Vector3D thetaPix = new Vector3D(getComponent(x, y, 0), getComponent(x, y, 1), getComponent(x, y, 2));
 
+        double div = thetaObj.sub(thetaPix).mod()/SQRT_3;
+
+        return Double.compare(threshold, div);
+    }
 
     /*
     END ACTIVE CONTOURS

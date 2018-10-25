@@ -1,6 +1,7 @@
 package formats;
 
 import lombok.Getter;
+import structures.Vector3D;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -9,7 +10,7 @@ import java.util.Set;
 public class RegionFeatures {
 
     public static RegionFeatures buildRegionFeatures(Image img, int x0, int y0, int x1, int y1){
-        if(img.getEncoding() == Encoding.HSV)
+        if(img.getEncoding() != Encoding.RGB)
             throw new IllegalArgumentException();
 
         RegionFeatures ans = new RegionFeatures();
@@ -17,7 +18,10 @@ public class RegionFeatures {
         ans.width = img.getWidth();
         ans.height = img.getHeight();
         ans.phi = new int[img.getWidth() * img.getHeight()];
-        ans.objAvg = ans.backAvg = 0;
+
+        ans.objAvg = new Vector3D();
+        ans.backAvg = new Vector3D();
+
         ans.lin = new HashSet<>();
         ans.lout = new HashSet<>();
 
@@ -29,27 +33,20 @@ public class RegionFeatures {
                 if(i < x0-1 || i > x1+1 || j < y0-1 || j > y1+1){
                     //Outside of image
                     ans.setPhi(i, j, 3);
-
                     backCount ++;
 
-                    double colour = 0;
-                    for(int c = 0; c < img.getEncoding().getBands(); c++)
-                        colour += Math.pow(img.getComponent(i, j, c), 2);
-                    colour = Math.sqrt(colour);
-
-                    ans.backAvg += colour;
+                    ans.backAvg.addP(Vector3D.X.scl(img.getComponent(i, j,0)));
+                    ans.backAvg.addP(Vector3D.Y.scl(img.getComponent(i, j,1)));
+                    ans.backAvg.addP(Vector3D.Z.scl(img.getComponent(i, j,2)));
 
                 } else if(i > x0 && i < x1 && j > y0 && j < y1){
                     //inside of object
                     ans.setPhi(i, j, -3);
                     objCount ++;
 
-                    double colour = 0;
-                    for(int c = 0; c < img.getEncoding().getBands(); c++)
-                        colour += Math.pow(img.getComponent(i, j, c), 2);
-                    colour = Math.sqrt(colour);
-
-                    ans.objAvg += colour;
+                    ans.objAvg.addP(Vector3D.X.scl(img.getComponent(i, j,0)));
+                    ans.objAvg.addP(Vector3D.Y.scl(img.getComponent(i, j,1)));
+                    ans.objAvg.addP(Vector3D.Z.scl(img.getComponent(i, j,2)));
 
                 } else if((i == x0 && j >= y0 && j <= y1) || (i == x1 && j >= y0 && j <= y1) ||
                           (j == y0 && i >= x0 && i <= x1) || (j == y1 && i >= x0 && i <= x1 )){
@@ -66,14 +63,16 @@ public class RegionFeatures {
 
             }
         }
-        ans.objAvg /= objCount;
-        ans.backAvg /= backCount;
+
+        ans.objAvg.sclP(1.0/objCount);
+        ans.backAvg.sclP(1.0/backCount);
+
         return ans;
     }
 
 
     private int[] phi;
-    private double objAvg, backAvg;
+    private Vector3D objAvg, backAvg;
     private int width, height;
     private Set<int[]> lin, lout;
 
