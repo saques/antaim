@@ -1045,10 +1045,9 @@ public class Image implements Cloneable{
         /**
          * GAUSS FILTERS
          */
-        List<ImageMaxMin> gauss = gs.convolution(gaussMask(3, 1, true),
-                                                 gaussMask(3, 1, true));
+        List<ImageMaxMin> gauss = gs.convolution(gaussMask(3, 1, true));
 
-        Image gauss1 = gauss.get(0).image, gauss2 = gauss.get(1).image;
+        Image gauss1 = gauss.get(0).image;
 
         /**
          * SOBEL EDGE DETECTOR
@@ -1066,23 +1065,10 @@ public class Image implements Cloneable{
                               dy = new ConvolutionParameters(MASK_DY, false, 1);
 
         List<ImageMaxMin> gauss1sobel = gauss1.convolution(dx, dy);
-        List<ImageMaxMin> gauss2sobel = gauss2.convolution(dx, dy);
 
         Image gauss1sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss1sobel, width, height);
-        Image gauss2sobelNoMaxSuppr = cannySobelModulusAngleNoMaxSuppr(gauss2sobel, width, height);
 
-        /**
-         * HISTERESIS THRESHOLDING
-         */
-
-        Image gauss1histTh = histeresisThreshold(gauss1sobelNoMaxSuppr, t1, t2);
-        Image gauss2histTh = histeresisThreshold(gauss2sobelNoMaxSuppr, t1, t2);
-
-        /**
-         * FINISH
-         */
-
-        return gauss1histTh.product(gauss2histTh);
+        return histeresisThreshold(gauss1sobelNoMaxSuppr, t1, t2);
     }
 
     private static Image cannySobelModulusAngleNoMaxSuppr(List<ImageMaxMin> dxdy, int width, int height){
