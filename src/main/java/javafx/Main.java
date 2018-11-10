@@ -437,7 +437,19 @@ public class Main extends Application {
         hough.getItems().addAll(lineHough, circleHough);
 
 
-        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, susan, activeContours,hough);
+        MenuItem harris = new MenuItem("Harris");
+        harris.setOnAction(e-> {
+            if(stack.isEmpty()){
+                showErrorModal(stage, "Empty stack");
+                return;
+            }
+            formats.Image image = stack.pop();
+            pushAndRender(image.harris(0.04), stage, root);
+        });
+
+
+
+        borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, susan, activeContours,hough, harris);
 
         /**
          *

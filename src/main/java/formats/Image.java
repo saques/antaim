@@ -253,6 +253,9 @@ public class Image implements Cloneable{
             }
         }
 
+        if(adjust == null)
+            return;
+
         for(int i = 0; i < i1.width; i++) {
             for (int j = 0; j < i1.height; j++) {
                 for(int c = 0; c < i1.encoding.getBands(); c++){
@@ -309,6 +312,7 @@ public class Image implements Cloneable{
 
         return ans;
     }
+
 
     public Image thresholding(int component, double u){
         checkConstraints(component, Encoding.HSV);
@@ -1709,6 +1713,70 @@ public class Image implements Cloneable{
     /*
     END ACTIVE CONTOURS
      */
+
+    public Image harris(double k){
+        if(encoding == Encoding.HSV)
+            throw new IllegalArgumentException();
+
+        Image gs = toGS();
+
+
+        ConvolutionParameters gauss = gaussMask(3, 1, true);
+
+        /**
+         * SOBEL EDGE DETECTOR
+         */
+
+        double[][] MASK_DX = {{-1.0, 0.0, 1.0},
+                              {-2.0, 0.0, 2.0},
+                              {-1.0, 0.0, 1.0}};
+
+        double[][] MASK_DY = {{-1.0, -2.0, -1.0},
+                              { 0.0,  0.0,  0.0},
+                              { 1.0,  2.0,  1.0}};
+
+        ConvolutionParameters dx = new ConvolutionParameters(MASK_DX, false, 1),
+                              dy = new ConvolutionParameters(MASK_DY, false, 1);
+
+        /**
+         * Ix Iy, Ix2, Iy2, Ixy
+         */
+
+        List<ImageMaxMin> IxIy = gs.convolution(dx, dy);
+
+        Image Ix = IxIy.get(0).image, Iy = IxIy.get(1).image;
+        Image Ix2 = new Image(width, height, Encoding.GS, true),
+              Iy2 = new Image(width, height, Encoding.GS, true),
+              Ixy = new Image(width, height, Encoding.GS, true);
+
+        applyAndAdjust(Ix, Ix, Ix2, (x, y)-> x*y, null);
+        applyAndAdjust(Iy, Iy, Iy2, (x, y)-> x*y, null);
+        applyAndAdjust(Ix, Iy, Ixy, (x, y)-> x*y, null);
+
+
+        Ix2 = Ix2.convolution(gauss).get(0).image;
+        Iy2 = Iy2.convolution(gauss).get(0).image;
+        Ixy = Ixy.convolution(gauss).get(0).image;
+
+
+        Image cim1 = new Image(width, height, Encoding.GS, true);
+
+        double max = Double.MIN_VALUE, min = Double.MAX_VALUE;
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                double ix2 = Ix2.getComponent(i, j, 0);
+                double iy2 = Iy2.getComponent(i, j, 0);
+                double ixy = Ixy.getComponent(i, j, 0);
+                double val = (ix2*iy2 - ixy*ixy) - k*(ix2 + iy2)*(ix2 + iy2);
+                max = Math.max(max, val); min = Math.min(min, val);
+                cim1.setComponent(i, j, 0, val);
+            }
+        }
+        cim1 = cim1.adjust(linearAdjust, new double[]{max, max, max}, new double[]{min, min, min});
+
+        return cim1;
+    }
+
 
     public Image houghTransform(FigureMode mode ,Double pStep,Double thetaStep, Integer aStep, Integer bStep, Integer rStep,Double epsilon,Double threshold){
         double t0 = System.currentTimeMillis();
