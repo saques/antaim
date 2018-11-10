@@ -1721,7 +1721,7 @@ public class Image implements Cloneable{
         Image gs = toGS();
 
 
-        ConvolutionParameters gauss = gaussMask(3, 1, true);
+        ConvolutionParameters gauss = gaussMask(3, 1, false);
 
         /**
          * SOBEL EDGE DETECTOR
@@ -1769,11 +1769,9 @@ public class Image implements Cloneable{
                 double ixy = Ixy.getComponent(i, j, 0);
                 double val = (ix2*iy2 - ixy*ixy) - k*(ix2 + iy2)*(ix2 + iy2);
                 max = Math.max(max, val); min = Math.min(min, val);
-                cim1.setComponent(i, j, 0, val);
+                cim1.setComponent(i, j, 0, val > 0.05 ? 1 : 0);
             }
         }
-        cim1 = cim1.adjust(linearAdjust, new double[]{max, max, max}, new double[]{min, min, min});
-
         return cim1;
     }
 
