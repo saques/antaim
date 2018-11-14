@@ -79,6 +79,16 @@ public final class ImageDrawingUtils {
         return image;
     }
 
+    public static Image drawRedCirclesInWhitePixels(Image image, Image wp, int radius){
+        if(image.getWidth() != wp.getWidth() || image.getHeight() != wp.getHeight())
+            throw new IllegalArgumentException();
+
+        wp.getWhitePixels().forEach(x -> drawCircle(image, x.getX(), x.getY(), radius, (i, j) -> new double[]{1, 0, 0}));
+
+        return image;
+
+    }
+
     public static double pithagoras(double x1, double x2, double y1, double y2){
         return Math.sqrt(Math.pow(x2 - x1,2) + Math.pow(y2 - y1, 2));
     }

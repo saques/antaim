@@ -313,7 +313,6 @@ public class Image implements Cloneable{
         return ans;
     }
 
-
     public Image thresholding(int component, double u){
         checkConstraints(component, Encoding.HSV);
         for(int i = 0; i < width; i++)
@@ -1714,14 +1713,14 @@ public class Image implements Cloneable{
     END ACTIVE CONTOURS
      */
 
-    public Image harris(double k){
+    public Image harris(double k, double threshold, int radius){
         if(encoding == Encoding.HSV)
             throw new IllegalArgumentException();
 
         Image gs = toGS();
 
 
-        ConvolutionParameters gauss = gaussMask(3, 1, false);
+        ConvolutionParameters gauss = gaussMask(7, 2, false);
 
         /**
          * SOBEL EDGE DETECTOR
@@ -1760,6 +1759,7 @@ public class Image implements Cloneable{
 
 
         Image cim1 = new Image(width, height, Encoding.GS, true);
+        Image cim2 = new Image(width, height, Encoding.GS, true);
 
         double max = Double.MIN_VALUE, min = Double.MAX_VALUE;
         for(int i = 0; i < width; i++){
@@ -1769,10 +1769,36 @@ public class Image implements Cloneable{
                 double ixy = Ixy.getComponent(i, j, 0);
                 double val = (ix2*iy2 - ixy*ixy) - k*(ix2 + iy2)*(ix2 + iy2);
                 max = Math.max(max, val); min = Math.min(min, val);
-                cim1.setComponent(i, j, 0, val > 0.05 ? 1 : 0);
+                cim1.setComponent(i, j, 0, val > threshold ? val : 0);
             }
         }
-        return cim1;
+
+
+        for(int i = 0; i < width; i++){
+            for(int j = 0; j < height; j++){
+                double val = cim1.getComponent(i, j, 0);
+
+                if(Double.compare(0, val) != 0) {
+                    boolean setWhite = true;
+                    for (int x = i - radius; x <= i + radius; x++) {
+                        for (int y = j - radius; y <= j + radius; y++) {
+                            if (i != x && j != y && !cim1.isOutOfBounds(x, y) && cim1.getComponent(x, y, 0) > val) {
+                                cim2.setComponent(i, j, 0, 0);
+                                setWhite = false;
+                                break;
+                            }
+                        }
+                    }
+                    if(setWhite)
+                        cim2.setComponent(i, j, 0, 1);
+                }
+            }
+        }
+
+
+
+
+        return cim2;
     }
 
 
@@ -1848,8 +1874,9 @@ public class Image implements Cloneable{
 
     }
 
-    private static class Pixel{
-        int x,y;
+    @Getter
+    public static class Pixel{
+        private int x,y;
 
         public Pixel(int x,int y){
             this.x = x;

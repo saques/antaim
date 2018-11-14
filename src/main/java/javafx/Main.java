@@ -446,17 +446,16 @@ public class Main extends Application {
         hough.getItems().addAll(lineHough, circleHough);
 
 
-        MenuItem harris = new MenuItem("Harris");
-        harris.setOnAction(e-> {
-            if(stack.isEmpty()){
-                showErrorModal(stage, "Empty stack");
-                return;
-            }
-            formats.Image image = stack.pop();
-            pushAndRender(image.harris(0.04), stage, root);
-        });
+        Menu harris = new Menu("Harris");
+
+        MenuItem harrisOnCurrentImage = new MenuItem("Harris on current image");
+        harrisOnCurrentImage.setOnAction(e->harris(stage, root, false));
+
+        MenuItem harrisOnNewImage = new MenuItem("Harris on new image");
+        harrisOnNewImage.setOnAction(e->harris(stage, root, true));
 
 
+        harris.getItems().addAll(harrisOnCurrentImage, harrisOnNewImage);
 
         borderDetectionMenu.getItems().addAll(basic, prewitt, sobel, canny, susan, activeContours,hough, harris);
 
@@ -2874,6 +2873,86 @@ public class Main extends Application {
                 formats.Image image = stack.pop().equalize().diffusion(t, s, detector).medianFilter(n).canny(t1, t2);
 
                 pushAndRender(image, stage, root);
+
+            } catch (Exception e) {
+                showErrorModal(stage,"Invalid arguments");
+            }
+            newWindow.close();
+        });
+    }
+
+
+
+    private void harris(Stage stage, BorderPane root, boolean onNew){
+
+        if(stack.isEmpty()){
+            showErrorModal(stage, "Empty stack");
+            return;
+        }
+
+        Text kLabel = new Text("k");
+        Text thresholdLabel = new Text("threshold");
+        Text radiusLabel = new Text("radius");
+
+        TextField kField = new TextField();
+        TextField thresholdField = new TextField();
+        TextField radiusField = new TextField();
+
+        Button submit = new Button("OK");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(kLabel, 0, 0);
+        gridPane.add(kField, 1, 0);
+        gridPane.add(thresholdLabel, 0, 1);
+        gridPane.add(thresholdField, 1, 1);
+        gridPane.add(radiusLabel, 0, 2);
+        gridPane.add(radiusField, 1, 2);
+        gridPane.add(submit, 0, 3);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        kLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        thresholdLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        radiusLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("Harris settings");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(event -> {
+            try {
+
+                Double k = Double.valueOf(kField.getText());
+
+                Double threshold = Double.valueOf(thresholdField.getText());
+
+                Integer radius = Integer.valueOf(radiusField.getText());
+
+                if(k < 0.04 || k > 0.06 || threshold < 0 || radius <=0)
+                    throw new Exception();
+
+                formats.Image image = stack.pop();
+
+                formats.Image drawOn = onNew ? new formats.Image(image.getWidth(), image.getHeight(), Encoding.RGB, true) : image;
+
+                pushAndRender(ImageDrawingUtils.drawRedCirclesInWhitePixels(drawOn, image.harris(k, threshold, radius), 2), stage, root);
 
             } catch (Exception e) {
                 showErrorModal(stage,"Invalid arguments");
