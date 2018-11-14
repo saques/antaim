@@ -1,5 +1,6 @@
 package javafx;
 
+import java.awt.Graphics;
 import formats.*;
 import interfaces.FigureMode;
 import interfaces.TriFunction;
@@ -31,15 +32,21 @@ import javafx.stage.*;
 import javafx.scene.image.Image;
 import javafx.util.Duration;
 import noise.*;
+import org.opencv.calib3d.Calib3d;
+import org.opencv.core.*;
+import org.opencv.features2d.*;
+import org.opencv.highgui.Highgui;
 import structures.LinkedListPeekAheadStack;
 import structures.PeekAheadStack;
 import utils.ImageDrawingUtils;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -454,8 +461,12 @@ public class Main extends Application {
         /**
          *
          */
+        Menu objectRecognition = new Menu("Object recognition");
+        MenuItem sift = new MenuItem("SIFT");
+        sift.setOnAction(e -> sift(stage, root));
 
-        menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu, thresholdMenu, borderDetectionMenu);
+        objectRecognition.getItems().add(sift);
+        menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu, thresholdMenu, borderDetectionMenu,objectRecognition);
 
     }
 
@@ -2870,6 +2881,8 @@ public class Main extends Application {
     }
 
 
+
+
     private void activeContoursVideo(Stage stage, BorderPane root, TriFunction<formats.Image, RegionFeatures,Double, BufferedImage> f, Function<formats.Image, formats.Image> regionF, double t){
         List<File> files = fileChooser.showOpenMultipleDialog(stage);
 
@@ -3034,7 +3047,217 @@ public class Main extends Application {
 
 
     }
+    private void sift(Stage stage, BorderPane root){
+        List<File> files = fileChooser.showOpenMultipleDialog(stage);
 
+        if(files == null){
+            showErrorModal(stage, "No images selected");
+            return;
+        }
+
+        if(files.size() != 2){
+            showErrorModal(stage, "Select 2 images");
+            return;
+        }
+
+
+       loadOpenCV();
+
+        Mat image1 = Highgui.imread(files.get(0).getAbsolutePath(), Highgui.CV_LOAD_IMAGE_COLOR);
+        Mat image2 = Highgui.imread(files.get(1).getAbsolutePath(), Highgui.CV_LOAD_IMAGE_COLOR);
+
+        showSIFTModal(stage,image1,image2);
+
+
+
+
+    }
+
+    private void showSIFTModal(Stage stage, Mat image1, Mat image2) {
+        Text dLabel = new Text("Descriptors");
+        TextField dField = new TextField();
+        Text rLabel = new Text("Match Ratio");
+        TextField rField = new TextField();
+        Button submit = new Button("Apply");
+
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(400, 200);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(dLabel, 0, 0);
+        gridPane.add(dField, 1, 0);
+        gridPane.add(rLabel, 0, 1);
+        gridPane.add(rField, 1, 1);
+        gridPane.add(submit, 0, 2);
+
+        submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+        dLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        rLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+
+        Scene scene = new Scene(gridPane);
+
+
+        Stage newWindow = new Stage();
+        newWindow.setTitle("SIFT Descriptors");
+        newWindow.setScene(scene);
+
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        submit.setOnAction(new EventHandler<ActionEvent>() {
+
+            @Override
+            public void handle(ActionEvent event) {
+                Integer s = Integer.valueOf(dField.getText());
+                Float ratio = Float.valueOf(rField.getText());
+
+                newWindow.close();
+                doSift(stage,image1,image2,s,ratio);
+
+            }
+        });
+    }
+
+    private void loadOpenCV() {
+        File lib = null;
+        String os = System.getProperty("os.name");
+        String bitness = System.getProperty("sun.arch.data.model");
+
+        if (os.toUpperCase().contains("WINDOWS")) {
+            if (bitness.endsWith("64")) {
+                lib = new File("libs//x64//" + System.mapLibraryName("opencv_java2413"));
+            } else {
+                lib = new File("libs//x86//" + System.mapLibraryName("opencv_java2413"));
+            }
+        }
+
+        System.out.println(lib.getAbsolutePath());
+        System.load(lib.getAbsolutePath());
+
+    }
+
+
+    private void doSift(Stage stage,Mat image1,Mat image2,int descriptors,double nndrRatio){
+        MatOfKeyPoint objectKeyPoints = new MatOfKeyPoint();
+        FeatureDetector featureDetector = FeatureDetector.create(FeatureDetector.SIFT);
+        featureDetector.detect(image1, objectKeyPoints);
+        KeyPoint[] keypoints = objectKeyPoints.toArray();
+
+        MatOfKeyPoint objectDescriptors = new MatOfKeyPoint();
+        DescriptorExtractor descriptorExtractor = DescriptorExtractor.create(DescriptorExtractor.SIFT);
+        descriptorExtractor.compute(image1, objectKeyPoints, objectDescriptors);
+
+
+        MatOfKeyPoint sceneKeyPoints = new MatOfKeyPoint();
+        MatOfKeyPoint sceneDescriptors = new MatOfKeyPoint();
+        featureDetector.detect(image2, sceneKeyPoints);
+        descriptorExtractor.compute(image2, sceneKeyPoints, sceneDescriptors);
+
+        Mat matchoutput = new Mat(image2.rows() * 2, image2.cols() * 2, Highgui.CV_LOAD_IMAGE_COLOR);
+        Scalar matchestColor = new Scalar(0, 255, 0);
+
+        List<MatOfDMatch> matches = new LinkedList<MatOfDMatch>();
+        DescriptorMatcher descriptorMatcher = DescriptorMatcher.create(DescriptorMatcher.FLANNBASED);
+        descriptorMatcher.knnMatch(objectDescriptors, sceneDescriptors, matches, 2);
+
+        LinkedList<DMatch> goodMatchesList = new LinkedList<DMatch>();
+
+
+        for (int i = 0; i < matches.size(); i++) {
+            MatOfDMatch matofDMatch = matches.get(i);
+            DMatch[] dmatcharray = matofDMatch.toArray();
+            DMatch m1 = dmatcharray[0];
+            DMatch m2 = dmatcharray[1];
+
+            if (m1.distance <= m2.distance * nndrRatio) {
+                goodMatchesList.addLast(m1);
+
+            }
+        }
+        System.out.println(goodMatchesList.size());
+        if (goodMatchesList.size() >= descriptors) {
+
+            List<KeyPoint> objKeypointlist = objectKeyPoints.toList();
+            List<KeyPoint> scnKeypointlist = sceneKeyPoints.toList();
+
+            LinkedList<Point> objectPoints = new LinkedList<>();
+            LinkedList<Point> scenePoints = new LinkedList<>();
+
+            for (int i = 0; i < goodMatchesList.size(); i++) {
+                objectPoints.addLast(objKeypointlist.get(goodMatchesList.get(i).queryIdx).pt);
+                scenePoints.addLast(scnKeypointlist.get(goodMatchesList.get(i).trainIdx).pt);
+            }
+
+            MatOfPoint2f objMatOfPoint2f = new MatOfPoint2f();
+            objMatOfPoint2f.fromList(objectPoints);
+            MatOfPoint2f scnMatOfPoint2f = new MatOfPoint2f();
+            scnMatOfPoint2f.fromList(scenePoints);
+
+            Mat homography = Calib3d.findHomography(objMatOfPoint2f, scnMatOfPoint2f, Calib3d.RANSAC, 3);
+
+            Mat obj_corners = new Mat(4, 1, CvType.CV_32FC2);
+            Mat scene_corners = new Mat(4, 1, CvType.CV_32FC2);
+
+            obj_corners.put(0, 0, new double[]{0, 0});
+            obj_corners.put(1, 0, new double[]{image1.cols(), 0});
+            obj_corners.put(2, 0, new double[]{image1.cols(), image1.rows()});
+            obj_corners.put(3, 0, new double[]{0, image1.rows()});
+
+            Core.perspectiveTransform(obj_corners, scene_corners, homography);
+
+
+            MatOfDMatch goodMatches = new MatOfDMatch();
+            goodMatches.fromList(goodMatchesList);
+            Scalar newKeypointColor = new Scalar(255, 0, 0);
+            Features2d.drawMatches(image1, objectKeyPoints, image2, sceneKeyPoints, goodMatches, matchoutput, matchestColor, newKeypointColor, new MatOfByte(), 2);
+
+            MatOfByte mob=new MatOfByte();
+            Highgui.imencode(".jpg", matchoutput, mob);
+            byte ba[]=mob.toArray();
+            try {
+                BufferedImage bi = ImageIO.read(new ByteArrayInputStream(ba));
+                if (matchoutput.width() > 1200){
+                    int newHeight = matchoutput.height()/(matchoutput.width()/1200);
+                    BufferedImage newImage = new BufferedImage(1200, newHeight, BufferedImage.TYPE_INT_RGB);
+
+                    Graphics g = newImage.createGraphics();
+                    g.drawImage(bi, 0, 0, 1200, newHeight , null);
+                    g.dispose();
+                    bi = newImage;
+                }
+                Stage newWindow = new Stage();
+
+
+                ImageView iv = new ImageView(SwingFXUtils.toFXImage(bi, null));
+
+                BorderPane bo = new BorderPane(iv);
+                bo.setMaxWidth(matchoutput.width()); bo.setMaxHeight(matchoutput.height());
+                ScrollPane scrollPane = new ScrollPane(bo);
+                scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+                scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+                Scene sc = new Scene(scrollPane);
+                newWindow.setScene(sc);
+                newWindow.show();
+            }
+            catch(Exception e){}
+
+
+        } else {
+            showErrorModal(stage, "No hubo coincidencias");
+        }
+
+
+
+    }
 
 
 }
