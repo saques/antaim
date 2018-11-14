@@ -3198,7 +3198,6 @@ public class Main extends Application {
                 Integer s = Integer.valueOf(dField.getText());
                 Float ratio = Float.valueOf(rField.getText());
 
-                newWindow.close();
                 doSift(stage,image1,image2,s,ratio);
 
             }
