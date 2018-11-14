@@ -53,6 +53,8 @@ import java.util.function.Function;
 
 public class Main extends Application {
 
+    static {System.loadLibrary(Core.NATIVE_LIBRARY_NAME);}
+
     private static final long REAL_TIME_FPS = 24;
     private static final long THOUSAND = 1000;
 
@@ -3060,9 +3062,6 @@ public class Main extends Application {
             return;
         }
 
-
-       loadOpenCV();
-
         Mat image1 = Highgui.imread(files.get(0).getAbsolutePath(), Highgui.CV_LOAD_IMAGE_COLOR);
         Mat image2 = Highgui.imread(files.get(1).getAbsolutePath(), Highgui.CV_LOAD_IMAGE_COLOR);
 
@@ -3126,25 +3125,6 @@ public class Main extends Application {
             }
         });
     }
-
-    private void loadOpenCV() {
-        File lib = null;
-        String os = System.getProperty("os.name");
-        String bitness = System.getProperty("sun.arch.data.model");
-
-        if (os.toUpperCase().contains("WINDOWS")) {
-            if (bitness.endsWith("64")) {
-                lib = new File("libs//x64//" + System.mapLibraryName("opencv_java2413"));
-            } else {
-                lib = new File("libs//x86//" + System.mapLibraryName("opencv_java2413"));
-            }
-        }
-
-        System.out.println(lib.getAbsolutePath());
-        System.load(lib.getAbsolutePath());
-
-    }
-
 
     private void doSift(Stage stage,Mat image1,Mat image2,int descriptors,double nndrRatio){
         MatOfKeyPoint objectKeyPoints = new MatOfKeyPoint();
