@@ -1,7 +1,11 @@
 package javafx;
 
-import java.awt.Graphics;
+import java.awt.*;
+
+
 import formats.*;
+import formats.Image;
+import formats.Image;
 import interfaces.FigureMode;
 import interfaces.TriFunction;
 import javafx.animation.KeyFrame;
@@ -22,6 +26,13 @@ import javafx.scene.chart.AreaChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
 import javafx.scene.effect.Light;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
@@ -29,27 +40,37 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.*;
-import javafx.scene.image.Image;
 import javafx.util.Duration;
+import net.sourceforge.tess4j.ITesseract;
+import net.sourceforge.tess4j.Tesseract;
 import noise.*;
-import org.opencv.calib3d.Calib3d;
 import org.opencv.core.*;
 import org.opencv.features2d.*;
-import org.opencv.highgui.Highgui;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 import structures.LinkedListPeekAheadStack;
 import structures.PeekAheadStack;
 import utils.ImageDrawingUtils;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.lang.reflect.Type;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static java.lang.System.out;
 
 public class Main extends Application {
 
@@ -464,9 +485,19 @@ public class Main extends Application {
          */
         Menu objectRecognition = new Menu("Object recognition");
         MenuItem sift = new MenuItem("SIFT");
-        sift.setOnAction(e -> sift(stage, root));
+       /* sift.setOnAction(e -> sift(stage, root));*/
 
-        objectRecognition.getItems().add(sift);
+        MenuItem licensePlateRecog = new MenuItem("License recognition");
+        licensePlateRecog.setOnAction(e -> {
+            try {
+                licenseModal(stage, root);
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        });
+
+        objectRecognition.getItems().addAll(sift,licensePlateRecog);
+
         menuBar.getMenus().addAll(fileMenu,drawMenu, opsMenu, noiseMenu, filtersMenu, thresholdMenu, borderDetectionMenu,objectRecognition);
 
     }
@@ -559,7 +590,7 @@ public class Main extends Application {
 
         final Label thresholdValue = new Label(Double.toString(thresholdLevel.getValue()));
 
-        Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
+        javafx.scene.image.Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
 
         ImageView iv = new ImageView(fxImg);
 
@@ -645,16 +676,16 @@ public class Main extends Application {
     private void chooseImage(final Stage stage, BorderPane root) {
         File file = fileChooser.showOpenDialog(stage);
         if (file != null) {
-            Image fxImg = null;
+            javafx.scene.image.Image fxImg = null;
 
             String[]  aux = file.toString().split("/");
             aux = aux[aux.length - 1].split("\\.");
-            System.out.println(aux.length != 2);
+            out.println(aux.length != 2);
             if (aux.length == 2){
                 switch (aux[1].toUpperCase()){
                     case "PGM":
                         try {
-                            System.out.println(file.toString());
+                            out.println(file.toString());
                             pushAndRender(new Pgm(file.toString()), stage, root);
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -662,7 +693,7 @@ public class Main extends Application {
                         break;
                     case "PPM":
                         try {
-                            System.out.println(file.toString());
+                            out.println(file.toString());
                             pushAndRender(new Ppm(file.toString()), stage, root);
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -676,7 +707,7 @@ public class Main extends Application {
                     case "PNG":
                     case "BMP":
                         try {
-                            System.out.println(file.toString());
+                            out.println(file.toString());
                             pushAndRender(new formats.Image(file.toString()), stage, root);
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -746,7 +777,7 @@ public class Main extends Application {
 
     private ImageView renderImage(Stage stage, BorderPane root, formats.Image image, double x, double y, double maxWidth, double maxHeight){
 
-        Image fxImg = SwingFXUtils.toFXImage(image.toBufferedImage(), null);
+        javafx.scene.image.Image fxImg = SwingFXUtils.toFXImage(image.toBufferedImage(), null);
 
         ImageView iv = new ImageView(fxImg);
 
@@ -955,6 +986,41 @@ public class Main extends Application {
         close.setOnAction(event -> newWindow.close());
     }
 
+    private void showModal(Stage stage,String msg){
+        Label error = new Label(msg);
+
+        Button close = new Button("OK");
+
+        GridPane gridPane = new GridPane();
+        gridPane.setMinSize(300, 100);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setVgap(5);
+        gridPane.setHgap(5);
+
+        gridPane.setAlignment(Pos.CENTER);
+
+        gridPane.add(error, 0, 0);
+        gridPane.add(close, 1, 1);
+
+        error.setStyle("-fx-font: normal bold 14px 'Arial' ");
+        gridPane.setStyle("-fx-background-color: WHITE;");
+        close.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+
+        Scene scene = new Scene(gridPane);
+
+        // New window (Stage)
+        Stage newWindow = new Stage();
+        newWindow.setScene(scene);
+
+        // Set position of second window, related to primary window.
+        newWindow.setX(stage.getX() + 200);
+        newWindow.setY(stage.getY() + 100);
+
+        newWindow.show();
+
+        close.setOnAction(event -> newWindow.close());
+    }
 
     private void drawPlainImage(Stage stage, BorderPane root){
         Text centerLabel = new Text("Color");
@@ -1317,7 +1383,7 @@ public class Main extends Application {
 
         final Label thresholdValue = new Label(Double.toString(thresholdLevel.getValue()));
 
-        Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
+        javafx.scene.image.Image fxImg = SwingFXUtils.toFXImage(img.toBufferedImage(), null);
 
         ImageView iv = new ImageView(fxImg);
 
@@ -2495,7 +2561,7 @@ public class Main extends Application {
             int y1 = (int) (selection.getY() - iv.getY());
             int x2 = (int) (x1+selection.getWidth());
             int y2 = (int) (y1 + selection.getHeight());
-            System.out.println("x1 = "+x1 + "; y1 = "+y1+"; x2 = "+x2+"; y2 = "+y2);
+            out.println("x1 = "+x1 + "; y1 = "+y1+"; x2 = "+x2+"; y2 = "+y2);
             int width = image.getWidth();
             int height = image.getHeight();
             if (!isSelectionOutOfBounds(x1,y1,x2,y2,width,height) && !areSamePoint(x1,y1,x2,y2)) {
@@ -3128,7 +3194,7 @@ public class Main extends Application {
 
 
     }
-    private void sift(Stage stage, BorderPane root){
+   /* private void sift(Stage stage, BorderPane root){
         List<File> files = fileChooser.showOpenMultipleDialog(stage);
 
         if(files == null){
@@ -3312,6 +3378,214 @@ public class Main extends Application {
         } else {
             showErrorModal(stage, "No hubo coincidencias");
         }
+
+
+
+    }*/
+
+   private void licenseModal(Stage stage,BorderPane root) throws IOException{
+       Text platesLabel = new Text("Plates");
+       TextField platesField = new TextField();
+
+       Text TLabel = new Text("Iterations");
+       TextField TField = new TextField();
+
+       Text SLabel = new Text("Sigma");
+       TextField SField = new TextField();
+
+       Button submit = new Button("OK");
+
+
+       GridPane gridPane = new GridPane();
+       gridPane.setMinSize(400, 200);
+       gridPane.setPadding(new Insets(10, 10, 10, 10));
+       gridPane.setVgap(5);
+       gridPane.setHgap(5);
+
+       gridPane.setAlignment(Pos.CENTER);
+
+       gridPane.add(platesLabel, 0, 0);
+       gridPane.add(platesField, 1, 0);
+       gridPane.add(TLabel, 0, 1);
+       gridPane.add(TField, 1, 1);
+       gridPane.add(SLabel, 0, 2);
+       gridPane.add(SField, 1, 2);
+       gridPane.add(submit, 0, 3);
+
+       submit.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
+
+       platesLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+       TLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+       SLabel.setStyle("-fx-font: normal bold 20px 'Arial' ");
+       gridPane.setStyle("-fx-background-color: WHITE;");
+
+       Scene scene = new Scene(gridPane);
+
+
+       Stage newWindow = new Stage();
+       newWindow.setTitle("License recognition settings");
+       newWindow.setScene(scene);
+
+       newWindow.setX(stage.getX() + 200);
+       newWindow.setY(stage.getY() + 100);
+
+       newWindow.show();
+
+       submit.setOnAction(event -> {
+           try {
+               Integer plates = Integer.valueOf(platesField.getText());
+               Integer t = Integer.valueOf(TField.getText());
+               Double s = Double.valueOf(SField.getText());
+
+               if (t <= 0){
+                   showErrorModal(stage,"Invalid number of iterations");
+                   return;
+               }
+
+               if (plates <= 0){
+                   showErrorModal(stage,"Invalid number of plates");
+                   return;
+               }
+
+               license(stage,root,plates,t,s);
+
+           } catch (Exception e) {
+               showErrorModal(stage,"Invalid dimensions, try again");
+           }
+           newWindow.close();
+       });
+   }
+
+    private void license(Stage stage, BorderPane root , Integer plates,Integer iterations,Double sigma) throws  IOException{
+        File file = fileChooser.showOpenDialog(stage);
+        if(file == null){
+            showErrorModal(stage, "No images selected");
+            return;
+        }
+        formats.Image img = new formats.Image(file.getAbsolutePath());
+        formats.Image ans = img.toGS().diffusion(iterations,sigma, formats.Image.DiffusionBorderDetector.LORENTZ).susanDetector(27.0/255.0,false);
+
+        String path = "./images/asd.png";
+
+        File outputfile = new File(path);
+        ImageIO.write(ans.toBufferedImage(), "png", outputfile);
+
+        Mat src = Imgcodecs.imread(path, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+        List<MatOfPoint> contours = new ArrayList<>();
+        Mat dest = Mat.zeros(src.size(), CvType.CV_32S);
+        Scalar white = new Scalar(255, 255, 255);
+
+        pushAndRender(img,stage,root);
+
+
+        Imgproc.findContours(src, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+
+        for (int i = 0 ; i < plates ; i++){
+            Double maxArea = contours.stream().filter(x-> {  Rect r = Imgproc.boundingRect(x); return r.width < 5 * r.height;}).map( x -> Imgproc.contourArea(x)).max(Double::compareTo).get();
+
+            MatOfPoint maxContour = contours.stream().filter(x -> Imgproc.contourArea(x) == maxArea).collect(Collectors.toList()).get(0);
+
+            RotatedRect rect =  Imgproc.minAreaRect(new MatOfPoint2f(maxContour.toArray()));
+
+            Rect r = rect.boundingRect();
+
+            formats.Image aux = img.copy(r.x,r.y,r.x+r.width,r.y+r.height);
+
+            String platePath = "./images/auxPlate.png";
+
+            pushAndRender(aux,stage,root);
+
+            aux = aux.toGS().negative().otsu();
+
+            formats.Image aux2 = aux;
+
+            aux = aux.weightedMedianFilter();
+
+            File plateFile = new File(platePath);
+            ImageIO.write(aux.toBufferedImage(), "png", plateFile);
+
+            BufferedImage inputImage = ImageIO.read(plateFile);
+
+            int scaledWidth = (int) (aux.getWidth()*2);
+            int scaledHeight = (int) (aux.getHeight()*2);
+
+            BufferedImage outputImage = new BufferedImage(scaledWidth,
+                    scaledHeight, inputImage.getType());
+
+            Graphics2D g2d = outputImage.createGraphics();
+            g2d.drawImage(inputImage, 0, 0, scaledWidth, scaledHeight, null);
+            g2d.dispose();
+
+
+
+            ImageIO.write(outputImage, "png", plateFile);
+
+
+
+            ITesseract instance = new Tesseract();
+            try{
+                instance.setDatapath("./OCR/tesseract/tessdata");
+                instance.setLanguage("ita");
+                String imgText = instance.doOCR(plateFile);
+                if (imgText.equals("")){
+                    ImageIO.write(aux2.toBufferedImage(), "png", plateFile);
+
+                    inputImage = ImageIO.read(plateFile);
+
+
+                    outputImage = new BufferedImage(scaledWidth,
+                            scaledHeight, inputImage.getType());
+
+                    g2d = outputImage.createGraphics();
+                    g2d.drawImage(inputImage, 0, 0, scaledWidth, scaledHeight, null);
+                    g2d.dispose();
+
+                    ImageIO.write(outputImage, "png", plateFile);
+
+                    instance.setDatapath("./OCR/tesseract/tessdata");
+                    instance.setLanguage("ita");
+                    imgText = instance.doOCR(plateFile);
+                }
+                showModal(stage,imgText);
+            }catch(Exception e){
+            }
+            contours.remove(maxContour);
+
+        }
+
+       /* Imgproc.drawContours(dest, contours, -1, white);
+
+        for (MatOfPoint contour: contours)
+            Imgproc.fillPoly(dest, Arrays.asList(contour), white);
+
+
+        MatOfByte mob=new MatOfByte();
+
+        Imgcodecs.imencode(".jpg", dest, mob);
+        byte ba[]=mob.toArray();
+        try {
+            BufferedImage bi = ImageIO.read(new ByteArrayInputStream(ba));
+            Stage newWindow = new Stage();
+
+
+            ImageView iv = new ImageView(SwingFXUtils.toFXImage(bi, null));
+
+            BorderPane bo = new BorderPane(iv);
+            bo.setMaxWidth(src.width()); bo.setMaxHeight(src.height());
+            ScrollPane scrollPane = new ScrollPane(bo);
+            scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+            scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+            Scene sc = new Scene(scrollPane);
+            newWindow.setScene(sc);
+            newWindow.show();
+
+        }catch (Exception e){
+
+        }*/
+
+
+
+
 
 
 
